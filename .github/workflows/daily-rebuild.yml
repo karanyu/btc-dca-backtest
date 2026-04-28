@@ -18,8 +18,8 @@ permissions:
   id-token: write    # for Pages deployment auth
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: rebuild-and-deploy
+  cancel-in-progress: false   # let runs queue, not cancel — protects ongoing commits
 
 jobs:
   rebuild:
@@ -63,7 +63,12 @@ jobs:
             echo "No changes — skipping commit"
           else
             git commit -m "auto: refresh dashboard $(date -u +%Y-%m-%d)"
-            git push
+            # Race-safe push: rebase atop any remote commits that landed during the run
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "push attempt $i failed, retrying..."
+              sleep 5
+            done
           fi
 
       - name: Setup Pages
