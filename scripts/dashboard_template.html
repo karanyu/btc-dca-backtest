@@ -561,6 +561,71 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
 .notif-status.denied  { color: var(--red); }
 .notif-status.pending { color: var(--accent); }
 
+/* ====================================================================
+   PHASE 9 — Adaptive planning (Mode D, tolerance, catch-up, replan)
+==================================================================== */
+.goal-form-advanced {
+  margin-top: 12px; padding: 8px 14px;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+}
+.goal-form-advanced summary {
+  cursor: pointer; font-size: 12px; color: var(--muted);
+  padding: 4px 0; user-select: none;
+}
+.goal-form-advanced summary:hover { color: var(--text); }
+.goal-form-advanced[open] summary { color: var(--accent); margin-bottom: 8px; }
+
+.goal-form-warnings {
+  margin-top: 12px; padding: 10px 14px; border-radius: 6px;
+  background: rgba(239,68,68,0.1); border: 1px solid var(--red);
+  font-size: 12px; color: var(--red);
+}
+.goal-form-warnings.warn {
+  background: rgba(245,158,11,0.1); border-color: var(--accent); color: var(--accent);
+}
+
+/* Re-plan badge: shown when current required ฿/day differs from original */
+.replan-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
+  margin-left: 6px;
+}
+.replan-badge.up   { background: rgba(239,68,68,0.15); color: var(--red); }
+.replan-badge.down { background: rgba(34,197,94,0.15); color: var(--green); }
+.replan-badge.flat { background: rgba(148,163,184,0.15); color: var(--muted); }
+
+/* Catch-up panel */
+.catchup-panel {
+  margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+  background: linear-gradient(90deg, rgba(239,68,68,0.08), rgba(245,158,11,0.04));
+  border: 1px solid rgba(239,68,68,0.3);
+  font-size: 12px;
+}
+.catchup-panel.ahead {
+  background: linear-gradient(90deg, rgba(34,197,94,0.08), rgba(96,165,250,0.04));
+  border-color: rgba(34,197,94,0.3);
+}
+.catchup-panel .head {
+  font-weight: 600; color: var(--text); display: flex; gap: 8px; align-items: center;
+}
+.catchup-panel .body { color: var(--muted); margin-top: 4px; line-height: 1.6; }
+.catchup-panel .body strong { color: var(--text); font-size: 13px; }
+
+/* Tolerance band info row */
+.tolerance-info {
+  font-size: 10px; color: var(--muted); margin-top: 4px;
+}
+.tolerance-info .badge {
+  display: inline-block; padding: 1px 6px; border-radius: 8px;
+  background: var(--panel2); margin-right: 4px;
+}
+
+/* Mode D info */
+.mode-d-info {
+  font-size: 11px; color: var(--accent); padding: 8px 12px;
+  background: rgba(245,158,11,0.08); border-radius: 6px; margin-top: 8px;
+}
+
 </style>
 </head>
 <body>
@@ -678,18 +743,50 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
           <option value="A">A: ระบุ BTC + วันสิ้นสุด → คำนวณงบที่ต้องการ</option>
           <option value="B">B: ระบุงบ + วันสิ้นสุด → คำนวณ BTC ที่จะได้</option>
           <option value="C">C: ระบุ BTC + งบ → คำนวณวันที่ถึงเป้า</option>
+          <option value="D">D: ระบุ BTC/เดือน → ฿ ปรับตามราคา (auto-adapt) ⭐</option>
         </select>
       </label>
       <label data-mode="A,C">เป้าหมาย BTC
         <input type="number" id="g-target-btc" step="0.01" min="0.01" value="1.00">
       </label>
-      <label data-mode="A,B">วันสิ้นสุด
+      <label data-mode="A,B,D">วันสิ้นสุด
         <input type="date" id="g-deadline">
       </label>
       <label data-mode="B,C">งบ ฿/วัน (base)
         <input type="number" id="g-budget" step="100" min="100" value="1000">
       </label>
+      <label data-mode="D">เป้า BTC ต่อเดือน
+        <input type="number" id="g-btc-per-month" step="0.001" min="0.001" value="0.030">
+      </label>
     </div>
+
+    <details class="goal-form-advanced">
+      <summary>⚙️ Advanced Settings (Tolerance + งบสูงสุด)</summary>
+      <div class="goal-form-grid" style="margin-top: 12px;">
+        <label>เป้า BTC ขั้นต่ำที่ยอมรับได้
+          <input type="number" id="g-target-min" step="0.01" min="0" placeholder="default: target × 0.8">
+        </label>
+        <label>เป้า BTC สูงสุดที่ยอมรับได้
+          <input type="number" id="g-target-max" step="0.01" min="0" placeholder="default: target × 1.2">
+        </label>
+        <label>วันสิ้นสุดเร็วที่สุดที่รับได้
+          <input type="date" id="g-deadline-min" placeholder="default: deadline">
+        </label>
+        <label>วันสิ้นสุดช้าที่สุดที่รับได้
+          <input type="date" id="g-deadline-max" placeholder="default: deadline">
+        </label>
+        <label>งบสูงสุดที่จ่ายได้ ฿/วัน (optional)
+          <input type="number" id="g-max-budget" step="100" min="0" placeholder="ปล่อยว่าง = ไม่จำกัด">
+        </label>
+      </div>
+      <div class="muted" style="font-size: 11px; margin-top: 8px;">
+        💡 Tolerance band ช่วยให้แผน <strong>ยืดหยุ่น</strong> — แทน "1 BTC พอดี" → "0.8-1.2 BTC ก็ OK"
+        <br>💡 งบสูงสุด: ถ้า required ฿/day เกินงบสูงสุด → ระบบเตือนก่อนบันทึก
+      </div>
+    </details>
+
+    <div id="goal-form-warnings" class="goal-form-warnings hidden"></div>
+
     <div class="goal-form-actions">
       <button class="btn primary" id="btn-save-goal">บันทึก</button>
       <button class="btn" id="btn-cancel-goal">ยกเลิก</button>
@@ -1077,9 +1174,9 @@ function getStrategyMultiplierToday(strategyId) {
 }
 
 function getGoalBaseBudget(goal, scen) {
-  // Mode A: derive from median required ฿/day (since target+deadline locked)
+  // Mode A or D: derive from median required ฿/day (auto-adapts with price)
   // Mode B/C: explicit budget from goal
-  if (goal.mode === 'A' && scen?.median?.thb_per_day) {
+  if ((goal.mode === 'A' || goal.mode === 'D') && scen?.median?.thb_per_day) {
     return Math.round(scen.median.thb_per_day);
   }
   return goal.budget_thb || 1000;
@@ -1404,9 +1501,32 @@ const NOTIF_KEY = 'dca_notif_v1';
 const FEE_RATE = DATA.meta.fee_rate_pct / 100;
 const TODAY_PRICE = DATA.today.price;
 
+function migrateGoal(g) {
+  // Schema v2 adds: tolerance bands, max budget, original required, BTC/month rate
+  if (g.version === 2) return g;
+  return {
+    ...g,
+    version: 2,
+    target_btc_min: g.target_btc_min ?? +(g.target_btc * 0.8).toFixed(4),
+    target_btc_max: g.target_btc_max ?? +(g.target_btc * 1.2).toFixed(4),
+    deadline_min: g.deadline_min || g.deadline,
+    deadline_max: g.deadline_max || g.deadline,
+    max_affordable_per_day: g.max_affordable_per_day ?? null,
+    target_btc_per_month: g.target_btc_per_month ?? null,
+    original_required_per_day: g.original_required_per_day ?? null,
+  };
+}
+
 function loadGoals() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-  catch { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const migrated = raw.map(migrateGoal);
+    // Persist migration
+    if (migrated.some((g, i) => g !== raw[i])) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+    }
+    return migrated;
+  } catch { return []; }
 }
 function saveGoals(goals) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
@@ -1451,39 +1571,105 @@ function showGoalForm(goal) {
   document.getElementById('g-target-btc').value = goal?.target_btc || 1.0;
   document.getElementById('g-deadline').value = goal?.deadline || addDaysISO(todayISO(), 1095);
   document.getElementById('g-budget').value = goal?.budget_thb || 1000;
+  document.getElementById('g-btc-per-month').value = goal?.target_btc_per_month || 0.030;
+  document.getElementById('g-target-min').value = goal?.target_btc_min || '';
+  document.getElementById('g-target-max').value = goal?.target_btc_max || '';
+  document.getElementById('g-deadline-min').value = goal?.deadline_min || '';
+  document.getElementById('g-deadline-max').value = goal?.deadline_max || '';
+  document.getElementById('g-max-budget').value = goal?.max_affordable_per_day || '';
+  document.getElementById('goal-form-warnings').classList.add('hidden');
   f.dataset.editId = goal?.id || '';
   f.classList.remove('hidden');
   applyFormMode();
 }
 function hideGoalForm() {
   document.getElementById('goal-form').classList.add('hidden');
+  document.getElementById('goal-form-warnings').classList.add('hidden');
 }
 
 function saveGoalFromForm() {
   const f = document.getElementById('goal-form');
+  const targetBtc = parseFloat(document.getElementById('g-target-btc').value) || 1.0;
+  const deadline = document.getElementById('g-deadline').value;
+  const maxBudget = parseFloat(document.getElementById('g-max-budget').value) || null;
+
   const goal = {
     id: f.dataset.editId || genId(),
+    version: 2,
     name: document.getElementById('g-name').value.trim() || 'เป้าหมายไม่มีชื่อ',
     strategy: document.getElementById('g-strategy').value,
     start_date: document.getElementById('g-start').value,
     mode: document.getElementById('g-mode').value,
-    target_btc: parseFloat(document.getElementById('g-target-btc').value) || 1.0,
-    deadline: document.getElementById('g-deadline').value,
+    target_btc: targetBtc,
+    deadline,
     budget_thb: parseFloat(document.getElementById('g-budget').value) || 1000,
+    target_btc_per_month: parseFloat(document.getElementById('g-btc-per-month').value) || null,
+    target_btc_min: parseFloat(document.getElementById('g-target-min').value) || +(targetBtc * 0.8).toFixed(4),
+    target_btc_max: parseFloat(document.getElementById('g-target-max').value) || +(targetBtc * 1.2).toFixed(4),
+    deadline_min: document.getElementById('g-deadline-min').value || deadline,
+    deadline_max: document.getElementById('g-deadline-max').value || deadline,
+    max_affordable_per_day: maxBudget,
     created_at: f.dataset.editId ? undefined : new Date().toISOString(),
     logs: [],
   };
+
+  // Feature #5: Affordable budget validation
+  const tempScen = computeGoalScenarios(goal);
+  const requiredPerDay = tempScen.median?.thb_per_day;
+  if (maxBudget && requiredPerDay && requiredPerDay > maxBudget) {
+    const warn = document.getElementById('goal-form-warnings');
+    warn.classList.remove('hidden');
+    warn.classList.remove('warn');  // hard error: red
+    warn.innerHTML = `
+      ⚠️ <strong>งบที่ต้องลง (Median scenario) = ฿${Math.ceil(requiredPerDay).toLocaleString()}/วัน
+      เกินงบสูงสุดที่ตั้ง ฿${maxBudget.toLocaleString()}/วัน</strong>
+      <br><span style="font-weight:normal">
+        ทางเลือก: 1) เพิ่มงบสูงสุด · 2) ลดเป้า BTC · 3) เพิ่มระยะเวลา · 4) บันทึกต่อ (จะ "ช้ากว่าแผน" ตั้งแต่เริ่ม)
+      </span>
+      <div style="margin-top:8px;">
+        <button class="btn primary" id="warn-save-anyway">บันทึกต่อ</button>
+        <button class="btn" id="warn-cancel-save">ยกเลิก</button>
+      </div>
+    `;
+    document.getElementById('warn-save-anyway').onclick = () => {
+      warn.classList.add('hidden');
+      doSaveGoal(goal);
+    };
+    document.getElementById('warn-cancel-save').onclick = () => warn.classList.add('hidden');
+    return;
+  }
+
+  doSaveGoal(goal);
+}
+
+function doSaveGoal(goal) {
+  // Snapshot original required ฿/day on creation (Feature #1)
+  if (!goal.original_required_per_day && (goal.mode === 'A' || goal.mode === 'D')) {
+    const scen = computeGoalScenarios(goal);
+    if (scen.median?.thb_per_day) {
+      goal.original_required_per_day = Math.round(scen.median.thb_per_day);
+    }
+  }
+
+  const f = document.getElementById('goal-form');
   let goals = loadGoals();
   if (f.dataset.editId) {
     const idx = goals.findIndex(g => g.id === f.dataset.editId);
-    if (idx >= 0) goals[idx] = { ...goals[idx], ...goal };
+    if (idx >= 0) {
+      // preserve logs + original_required when editing
+      const preserved = {
+        logs: goals[idx].logs || [],
+        original_required_per_day: goals[idx].original_required_per_day || goal.original_required_per_day,
+        created_at: goals[idx].created_at,
+      };
+      goals[idx] = { ...goal, ...preserved };
+    }
   } else {
     goals.push(goal);
   }
   saveGoals(goals);
   hideGoalForm();
   renderGoals();
-  // Refresh Today tab too if goals affect it
   renderTodayGoalActions();
 }
 
@@ -1515,6 +1701,7 @@ function computeGoalScenarios(goal) {
   //   For mode A: required_thb_per_day for {flat, P10, median, P90}
   //   For mode B: projected_btc for {flat, P10, median, P90}
   //   For mode C: projected_days_to_goal for {flat, P10, median, P90}
+  //   For mode D: required_thb_per_day for current price + accumulation rate analysis
   const today = todayISO();
   const { accumBtc, investedThb } = computeProgress(goal);
   const remainingBtc = Math.max(0, goal.target_btc - accumBtc);
@@ -1536,6 +1723,26 @@ function computeGoalScenarios(goal) {
   // (rough proxy; honest disclosure in UI)
   const adjP10 = refData ? adjMedian * 0.75 : 0.85;  // pessimistic
   const adjP90 = refData ? adjMedian * 1.25 : 1.15;  // optimistic
+
+  if (goal.mode === 'D') {
+    // BTC Rate Target — required ฿/day adjusts with current price
+    // To accumulate target_btc_per_month BTC: need (target_btc_per_month/30) BTC per day
+    // ฿/day = (target_btc/30) × current_price × (1 + fee) / strategy_adj
+    const btcPerDay = (goal.target_btc_per_month || 0.03) / 30;
+    const requiredThbFlat = btcPerDay * TODAY_PRICE * (1 + FEE_RATE);
+    const daysRem = Math.max(1, daysBetween(today, goal.deadline));
+    return {
+      mode: 'D',
+      completed: false,
+      accumBtc, investedThb, daysRem,
+      target_btc_per_month: goal.target_btc_per_month || 0.03,
+      flat:        { thb_per_day: requiredThbFlat },
+      median:      { thb_per_day: requiredThbFlat / adjMedian },
+      pessimistic: { thb_per_day: requiredThbFlat / adjP10 },
+      optimistic:  { thb_per_day: requiredThbFlat / adjP90 },
+      ref_window_days: refDays,
+    };
+  }
 
   if (goal.mode === 'A') {
     // Target BTC + Deadline → required ฿/day
@@ -1590,9 +1797,71 @@ function statusForGoal(goal, scen) {
   if (elapsed <= 0) return { label: 'ยังไม่เริ่ม', cls: 'on-track' };
   const expectedFraction = Math.min(1, elapsed / totalDays);
   const actualFraction = Math.min(1, scen.accumBtc / goal.target_btc);
+  // Tolerance-aware: use target_btc_min for lower bound check
+  const minTargetFraction = Math.min(1, scen.accumBtc / (goal.target_btc_min || goal.target_btc));
+  if (minTargetFraction >= 1.0) return { label: '🎉 ถึงเป้า (min)', cls: 'completed' };
+  if (actualFraction >= expectedFraction * 1.1) return { label: '🔵 เกินแผน', cls: 'ahead' };
   if (actualFraction >= expectedFraction) return { label: '🟢 On track', cls: 'on-track' };
   if (actualFraction >= expectedFraction * 0.85) return { label: '🟡 ใกล้แผน', cls: 'on-track' };
   return { label: '🔴 ช้ากว่าแผน', cls: 'behind' };
+}
+
+// Feature #3: Catch-up amount — extra ฿/day needed to close gap by deadline
+function computeCatchUp(goal, scen) {
+  if (scen.completed) return null;
+  if (goal.mode === 'D') return null;  // Mode D auto-adapts
+
+  const today = todayISO();
+  const totalDays = daysBetween(goal.start_date, goal.deadline);
+  const elapsed = daysBetween(goal.start_date, today);
+  const remDays = Math.max(1, daysBetween(today, goal.deadline));
+  if (elapsed <= 0 || totalDays <= 0) return null;
+
+  const expectedBtcByNow = (elapsed / totalDays) * goal.target_btc;
+  const gap = expectedBtcByNow - scen.accumBtc;
+
+  // Compute "current ฿/day need" — what user should be investing now
+  const flatRate = 1 / (TODAY_PRICE * (1 + FEE_RATE));
+  const refWindow = pickReference(goal.strategy, daysBetween(goal.start_date, goal.deadline));
+  const adjMedian = refWindow.data
+    ? (refWindow.data.median_btc / (1000 * refWindow.window)) / flatRate
+    : 1.0;
+
+  if (Math.abs(gap) < 1e-6) return { kind: 'on_track' };
+  if (gap < 0) {
+    // Ahead — show by how much
+    return { kind: 'ahead', surplus_btc: -gap };
+  }
+
+  // Behind — how much extra ฿/day to close gap by deadline
+  const remainingTotal = goal.target_btc - scen.accumBtc;
+  const requiredThbPerDay = (remainingTotal / flatRate / remDays) / adjMedian;
+  const baseThbPerDay = (goal.mode === 'A')
+    ? (scen.median?.thb_per_day || 0)
+    : goal.budget_thb;
+  const extraPerDay = Math.max(0, requiredThbPerDay - baseThbPerDay);
+  return {
+    kind: 'behind',
+    gap_btc: gap,
+    required_per_day_now: Math.ceil(requiredThbPerDay),
+    base_per_day: Math.ceil(baseThbPerDay),
+    extra_per_day: Math.ceil(extraPerDay),
+  };
+}
+
+// Feature #1: Re-plan delta — current required vs original snapshot
+function computeReplanDrift(goal, scen) {
+  if (!goal.original_required_per_day) return null;
+  const currentRequired = (goal.mode === 'A' || goal.mode === 'D')
+    ? (scen.median?.thb_per_day || null)
+    : null;
+  if (!currentRequired) return null;
+  const drift = (currentRequired - goal.original_required_per_day) / goal.original_required_per_day;
+  return {
+    original: goal.original_required_per_day,
+    current: currentRequired,
+    drift_pct: drift * 100,
+  };
 }
 
 // ── Render ────────────────────────────────────────────────────────
@@ -1632,6 +1901,52 @@ function renderGoalCard(goal) {
   const pct = Math.min(100, (scen.accumBtc / goal.target_btc) * 100);
   const stratLabel = DATA.meta.strategies.find(s => s.id === goal.strategy)?.label || goal.strategy;
 
+  // Feature #1: Re-plan delta badge
+  const replan = computeReplanDrift(goal, scen);
+  let replanBadge = '';
+  if (replan && Math.abs(replan.drift_pct) > 5) {
+    const cls = replan.drift_pct > 0 ? 'up' : 'down';
+    const arrow = replan.drift_pct > 0 ? '↑' : '↓';
+    replanBadge = `<span class="replan-badge ${cls}" title="ตอนเริ่ม ฿${Math.round(replan.original).toLocaleString()}/d">
+      ${arrow} ${Math.abs(replan.drift_pct).toFixed(0)}% vs แผนเดิม</span>`;
+  } else if (replan) {
+    replanBadge = `<span class="replan-badge flat" title="ตรงตามแผนเดิม">≈ ตามแผนเดิม</span>`;
+  }
+
+  // Feature #3: Catch-up panel
+  const catchup = computeCatchUp(goal, scen);
+  let catchupHtml = '';
+  if (catchup) {
+    if (catchup.kind === 'behind') {
+      catchupHtml = `
+        <div class="catchup-panel">
+          <div class="head">⚠️ ช้ากว่าแผน — ห่างเป้า ${catchup.gap_btc.toFixed(4)} BTC</div>
+          <div class="body">
+            ทันแผน: เพิ่มเป็น <strong>฿${catchup.required_per_day_now.toLocaleString()}/วัน</strong>
+            ${catchup.extra_per_day > 0 ? `(เพิ่ม ฿${catchup.extra_per_day.toLocaleString()} จากเดิม ฿${catchup.base_per_day.toLocaleString()})` : ''}
+          </div>
+        </div>`;
+    } else if (catchup.kind === 'ahead') {
+      catchupHtml = `
+        <div class="catchup-panel ahead">
+          <div class="head">✨ เกินแผน +${catchup.surplus_btc.toFixed(4)} BTC</div>
+          <div class="body">ทำได้ดีมาก! สามารถลดงบลงได้ถ้าต้องการ</div>
+        </div>`;
+    }
+  }
+
+  // Tolerance band info
+  let toleranceInfo = '';
+  if (goal.target_btc_min !== goal.target_btc || goal.target_btc_max !== goal.target_btc
+      || goal.deadline_min !== goal.deadline || goal.deadline_max !== goal.deadline) {
+    toleranceInfo = `
+      <div class="tolerance-info">
+        <span class="badge">BTC band: ${goal.target_btc_min}–${goal.target_btc_max}</span>
+        ${goal.deadline_min !== goal.deadline_max ? `<span class="badge">Date band: ${goal.deadline_min} → ${goal.deadline_max}</span>` : ''}
+      </div>
+    `;
+  }
+
   let scenarioHtml = '';
   if (scen.mode === 'A' && !scen.completed) {
     scenarioHtml = `
@@ -1641,6 +1956,22 @@ function renderGoalCard(goal) {
         <div class="scenario-card pessimistic"><div class="label">🔴 P10 แย่</div><div class="value">฿${Math.ceil(scen.pessimistic.thb_per_day).toLocaleString()}/d</div></div>
         <div class="scenario-card median"><div class="label">🟡 Median</div><div class="value">฿${Math.ceil(scen.median.thb_per_day).toLocaleString()}/d</div></div>
         <div class="scenario-card optimistic"><div class="label">🟢 P90 ดี</div><div class="value">฿${Math.ceil(scen.optimistic.thb_per_day).toLocaleString()}/d</div></div>
+      </div>`;
+  } else if (scen.mode === 'D' && !scen.completed) {
+    scenarioHtml = `
+      <div class="goal-progress-label">
+        <strong>Mode D — BTC Rate Target</strong>: เป้า <strong>${scen.target_btc_per_month} BTC/เดือน</strong>
+        (ราคาวันนี้ ฿${TODAY_PRICE.toLocaleString('en-US', {maximumFractionDigits: 0})})
+      </div>
+      <div class="goal-scenarios">
+        <div class="scenario-card flat"><div class="label">📌 Flat (ราคาคงที่)</div><div class="value">฿${Math.ceil(scen.flat.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card pessimistic"><div class="label">🔴 P10</div><div class="value">฿${Math.ceil(scen.pessimistic.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card median"><div class="label">🟡 Median</div><div class="value">฿${Math.ceil(scen.median.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card optimistic"><div class="label">🟢 P90</div><div class="value">฿${Math.ceil(scen.optimistic.thb_per_day).toLocaleString()}/d</div></div>
+      </div>
+      <div class="mode-d-info">
+        💡 ฿/วัน จะปรับอัตโนมัติเมื่อราคา BTC เปลี่ยน — ถ้าราคาขึ้น = ใช้ ฿ มากขึ้น, ราคาลง = ใช้ ฿ น้อยลง
+        เพื่อ <strong>คงอัตรา BTC สะสมต่อเดือนไว้</strong>
       </div>`;
   } else if (scen.mode === 'B' && !scen.completed) {
     scenarioHtml = `
@@ -1671,9 +2002,10 @@ function renderGoalCard(goal) {
       <div class="goal-chart-legend">
         <span class="lg-item"><span class="swatch swatch-dashed"></span>เส้นแผน (linear)</span>
         <span class="lg-item"><span class="swatch" style="background:var(--accent)"></span>Actual progress</span>
-        <span class="lg-item"><span class="swatch" style="background:var(--green)"></span>P90 projection</span>
-        <span class="lg-item"><span class="swatch" style="background:#facc15"></span>Median projection</span>
-        <span class="lg-item"><span class="swatch" style="background:var(--red)"></span>P10 projection</span>
+        <span class="lg-item"><span class="swatch" style="background:var(--green)"></span>P90</span>
+        <span class="lg-item"><span class="swatch" style="background:#facc15"></span>Median</span>
+        <span class="lg-item"><span class="swatch" style="background:var(--red)"></span>P10</span>
+        <span class="lg-item"><span class="swatch" style="background:rgba(245,158,11,0.4); height:8px;"></span>Tolerance band</span>
         <span class="lg-item"><span class="swatch-dot" style="background:var(--text)"></span>วันนี้</span>
       </div>
     </div>
@@ -1697,13 +2029,16 @@ function renderGoalCard(goal) {
   card.innerHTML = `
     <div class="goal-card-header">
       <div>
-        <div class="goal-card-title">${goal.name} <span class="goal-status ${status.cls}">${status.label}</span></div>
+        <div class="goal-card-title">${goal.name} <span class="goal-status ${status.cls}">${status.label}</span> ${replanBadge}</div>
         <div class="goal-card-meta">
           กลยุทธ์ <strong>${stratLabel}</strong> ·
           เริ่ม ${goal.start_date}${goal.mode !== 'C' ? ' · สิ้นสุด ' + goal.deadline : ''} ·
-          เป้า ${goal.target_btc} BTC
+          ${goal.mode === 'D'
+            ? 'เป้า ' + (goal.target_btc_per_month || 0.03) + ' BTC/เดือน'
+            : 'เป้า ' + goal.target_btc + ' BTC'}
           ${goal.mode === 'C' ? ' · งบ ฿' + goal.budget_thb + '/วัน' : ''}
         </div>
+        ${toleranceInfo}
       </div>
       <div class="goal-card-actions">
         <button class="btn" data-action="log" data-id="${goal.id}">📝 ซื้อ</button>
@@ -1719,6 +2054,7 @@ function renderGoalCard(goal) {
       <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%"></div></div>
     </div>
     ${scenarioHtml}
+    ${catchupHtml}
     <div class="muted" style="font-size:10px; margin-top:8px">
       📊 Reference: ใช้ rolling backtest ${scen.ref_window_days || 'flat'} วันของกลยุทธ์ ${stratLabel} ·
       💡 P10/P90 ประมาณการจาก backtest 5 ปีที่ผ่านมา · ไม่การันตีอนาคต
@@ -1842,8 +2178,10 @@ function renderGoalChart(goal, scen, canvasId) {
   const medLine = projAt(endpoints.end_median);
   const p90Line = projAt(endpoints.end_p90);
 
-  // 4. Target horizontal line
+  // 4. Target horizontal line + tolerance band (Feature #4)
   const targetLine = dayNumbers.map(() => goal.target_btc);
+  const targetMinLine = dayNumbers.map(() => goal.target_btc_min || goal.target_btc * 0.8);
+  const targetMaxLine = dayNumbers.map(() => goal.target_btc_max || goal.target_btc * 1.2);
 
   // X-tick labels: show every Nth label to avoid crowding (max ~10)
   const tickStride = Math.max(1, Math.ceil(labels.length / 10));
@@ -1864,11 +2202,30 @@ function renderGoalChart(goal, scen, canvasId) {
           fill: false, order: 5,
         },
         {
+          label: 'Target max',
+          data: targetMaxLine,
+          borderColor: 'rgba(34,197,94,0.25)',
+          borderDash: [1, 4],
+          borderWidth: 1,
+          pointRadius: 0, tension: 0,
+          fill: '+1', backgroundColor: 'rgba(245,158,11,0.06)',
+          order: 7,
+        },
+        {
+          label: 'Target min',
+          data: targetMinLine,
+          borderColor: 'rgba(239,68,68,0.25)',
+          borderDash: [1, 4],
+          borderWidth: 1,
+          pointRadius: 0, tension: 0,
+          fill: false, order: 8,
+        },
+        {
           label: 'Target',
           data: targetLine,
-          borderColor: 'rgba(245,158,11,0.4)',
-          borderDash: [2, 6],
-          borderWidth: 1,
+          borderColor: 'rgba(245,158,11,0.6)',
+          borderDash: [4, 4],
+          borderWidth: 1.5,
           pointRadius: 0, tension: 0,
           fill: false, order: 6,
         },
