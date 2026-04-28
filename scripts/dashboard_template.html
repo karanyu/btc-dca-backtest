@@ -303,6 +303,74 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
 }
 
 /* ====================================================================
+   TODAY GOAL ACTIONS — per-goal daily action cards
+==================================================================== */
+.goal-action-empty {
+  background: var(--panel); border: 1px dashed var(--border); border-radius: 10px;
+  padding: 20px 22px; text-align: center; color: var(--muted); font-size: 13px;
+  line-height: 1.6;
+}
+.goal-action-empty a {
+  color: var(--accent); font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.goal-action-empty a:hover { text-decoration: underline; }
+
+.goal-action-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px; align-items: center;
+  border-left: 4px solid var(--accent);
+}
+.goal-action-card.status-on-track  { border-left-color: var(--green); }
+.goal-action-card.status-behind    { border-left-color: var(--red); }
+.goal-action-card.status-ahead     { border-left-color: var(--blue); }
+.goal-action-card.status-completed { border-left-color: var(--accent); opacity: 0.65; }
+.goal-action-card.status-not-started { border-left-color: var(--muted); }
+
+.goal-action-info .name {
+  font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.goal-action-info .name .status-badge {
+  font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px;
+}
+.goal-action-info .meta {
+  font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.6;
+}
+.goal-action-info .meta strong { color: var(--text); }
+.goal-action-info .progress-mini {
+  margin-top: 6px; height: 4px; background: var(--panel2); border-radius: 2px; overflow: hidden;
+  max-width: 280px;
+}
+.goal-action-info .progress-mini .fill {
+  height: 100%; background: linear-gradient(to right, var(--green), var(--accent));
+}
+
+.goal-action-amount {
+  text-align: right;
+}
+.goal-action-amount .number {
+  font-size: 20px; font-weight: 800; color: var(--accent); line-height: 1;
+}
+.goal-action-amount .sub {
+  font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.goal-action-card .quick-log-btn {
+  background: var(--accent); color: var(--bg); border: none; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+}
+.goal-action-card .quick-log-btn:hover { opacity: 0.9; }
+.goal-action-card .quick-log-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .goal-action-card { grid-template-columns: 1fr; }
+  .goal-action-amount { text-align: left; }
+}
+
+/* ====================================================================
    COMPARE TAB — Goal recommendation card
 ==================================================================== */
 .compare-goal-row {
@@ -539,7 +607,10 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
 
   <div id="today-summary" class="today-summary"></div>
 
-  <h3 class="section-h">📊 คำแนะนำ DCA วันนี้</h3>
+  <h3 class="section-h">🎯 คำแนะนำตามเป้าหมายของคุณ</h3>
+  <div id="today-goal-actions"></div>
+
+  <h3 class="section-h">📊 ทุกกลยุทธ์เปรียบเทียบ (reference)</h3>
   <div class="today-cards" id="today-cards"></div>
 
   <h3 class="section-h">🎯 Threshold Map — ราคาที่ trigger แต่ละ tier</h3>
@@ -997,10 +1068,112 @@ function renderTodaySummary() {
   `;
 }
 
+function getStrategyMultiplierToday(strategyId) {
+  // Returns {multiplier, reason} based on today's state for a given strategy.
+  const t = DATA.today;
+  const decision = t.decisions.find(d => d.strategy === strategyId);
+  if (decision) return { multiplier: decision.multiplier, reason: decision.reason };
+  return { multiplier: 1.0, reason: 'unknown strategy' };
+}
+
+function getGoalBaseBudget(goal, scen) {
+  // Mode A: derive from median required ฿/day (since target+deadline locked)
+  // Mode B/C: explicit budget from goal
+  if (goal.mode === 'A' && scen?.median?.thb_per_day) {
+    return Math.round(scen.median.thb_per_day);
+  }
+  return goal.budget_thb || 1000;
+}
+
+function renderTodayGoalActions() {
+  const container = document.getElementById('today-goal-actions');
+  const goals = loadGoals();
+
+  if (goals.length === 0) {
+    container.innerHTML = `
+      <div class="goal-action-empty">
+        ยังไม่มีเป้าหมาย — <a id="goto-goals-tab">ตั้งเป้าหมายแรกของคุณ</a> เพื่อรับคำแนะนำเฉพาะตัว
+        <br><span style="font-size: 11px; opacity: 0.7;">
+          ระบบจะคำนวณงบที่ต้องลงวันนี้ จากกลยุทธ์และ progress ของแต่ละเป้าหมาย
+        </span>
+      </div>
+    `;
+    document.getElementById('goto-goals-tab')?.addEventListener('click', () => {
+      document.querySelectorAll('.tab')[1].click();
+    });
+    return;
+  }
+
+  container.innerHTML = '';
+  const todayPriceFormatted = TODAY_PRICE.toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  goals.forEach(goal => {
+    const scen = computeGoalScenarios(goal);
+    const status = statusForGoal(goal, scen);
+    const baseBudget = getGoalBaseBudget(goal, scen);
+    const stratInfo = getStrategyMultiplierToday(goal.strategy);
+    const todayAmount = Math.round(baseBudget * stratInfo.multiplier);
+    const stratColorVal = stratColor(goal.strategy);
+    const stratLabelVal = stratLabel(goal.strategy);
+
+    const pct = Math.min(100, (scen.accumBtc / goal.target_btc) * 100);
+    const isCompleted = scen.completed;
+
+    const statusClass = isCompleted ? 'status-completed'
+      : status.cls === 'on-track' ? 'status-on-track'
+      : status.cls === 'behind' ? 'status-behind'
+      : status.cls === 'ahead' ? 'status-ahead'
+      : 'status-not-started';
+
+    const card = document.createElement('div');
+    card.className = `goal-action-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="goal-action-info">
+        <div class="name">
+          ${goal.name}
+          <span class="status-badge goal-status ${status.cls}">${status.label}</span>
+        </div>
+        <div class="meta">
+          <span style="color:${stratColorVal}">●</span> <strong>${stratLabelVal}</strong> ${stratInfo.multiplier}x ·
+          progress <strong>${scen.accumBtc.toFixed(4)}</strong>/${goal.target_btc} BTC (${pct.toFixed(1)}%) ·
+          base ฿${baseBudget.toLocaleString()}/วัน
+          <br><span style="font-size:10px; opacity:0.85;">${stratInfo.reason}</span>
+        </div>
+        <div class="progress-mini"><div class="fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="goal-action-amount">
+        <div class="number">฿${todayAmount.toLocaleString()}</div>
+        <div class="sub">ซื้อวันนี้</div>
+      </div>
+      <button class="quick-log-btn" data-goal-id="${goal.id}" data-amount="${todayAmount}" ${isCompleted ? 'disabled' : ''}>
+        ${isCompleted ? '✓ ถึงเป้าแล้ว' : '📝 บันทึก'}
+      </button>
+    `;
+    container.appendChild(card);
+  });
+
+  // Wire up quick-log buttons
+  container.querySelectorAll('.quick-log-btn:not(:disabled)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const goalId = btn.dataset.goalId;
+      const amount = parseFloat(btn.dataset.amount);
+      // Switch to Goals tab and open log form pre-filled
+      document.querySelectorAll('.tab')[1].click();
+      setTimeout(() => {
+        showLogForm(goalId);
+        document.getElementById('log-thb').value = amount;
+        updateLogBtcPreview();
+        document.getElementById('log-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    });
+  });
+}
+
 function renderToday() {
   const t = DATA.today;
   if (!t) return;
   renderTodaySummary();
+  renderTodayGoalActions();
 
   // Hero — date, price, mayer
   document.getElementById('today-date').textContent = t.as_of_date;
@@ -1310,12 +1483,15 @@ function saveGoalFromForm() {
   saveGoals(goals);
   hideGoalForm();
   renderGoals();
+  // Refresh Today tab too if goals affect it
+  renderTodayGoalActions();
 }
 
 function deleteGoal(id) {
   if (!confirm('ลบเป้าหมายนี้? (logs ที่บันทึกไว้จะหายด้วย)')) return;
   saveGoals(loadGoals().filter(g => g.id !== id));
   renderGoals();
+  renderTodayGoalActions();
 }
 
 // ── Goal calculator ───────────────────────────────────────────────
@@ -1842,6 +2018,7 @@ function saveLogFromForm() {
   saveGoals(goals);
   hideLogForm();
   renderGoals();
+  renderTodayGoalActions();
 }
 
 // ── Notification ──────────────────────────────────────────────────
