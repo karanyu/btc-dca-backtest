@@ -626,6 +626,91 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   background: rgba(245,158,11,0.08); border-radius: 6px; margin-top: 8px;
 }
 
+/* ====================================================================
+   PHASE 10 — PDF principles (timing, RSI, F&G, annual returns, UTXO)
+==================================================================== */
+.timing-grid {
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px;
+  align-items: center; padding: 4px 0;
+}
+.timing-cell .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.timing-cell .v { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 2px; }
+.timing-cell .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.timing-total {
+  text-align: right; padding-left: 14px; border-left: 1px solid var(--border);
+}
+.timing-total .num { font-size: 28px; font-weight: 800; line-height: 1; }
+.timing-total .num.pos { color: var(--green); }
+.timing-total .num.neg { color: var(--red); }
+.timing-total .lbl { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.timing-source { font-size: 10px; color: var(--muted); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+.extra-indicators {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;
+}
+.indicator-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; border-top: 3px solid var(--muted);
+}
+.indicator-card.rsi-oversold     { border-top-color: var(--green); }
+.indicator-card.rsi-normal       { border-top-color: var(--blue); }
+.indicator-card.rsi-overbought   { border-top-color: var(--red); }
+.indicator-card.fg-extreme-fear  { border-top-color: var(--green); }
+.indicator-card.fg-fear          { border-top-color: #84cc16; }
+.indicator-card.fg-neutral       { border-top-color: var(--blue); }
+.indicator-card.fg-greed         { border-top-color: var(--accent); }
+.indicator-card.fg-extreme-greed { border-top-color: var(--red); }
+.indicator-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.indicator-card .value { font-size: 28px; font-weight: 800; color: var(--text); margin-top: 4px; line-height: 1; }
+.indicator-card .verdict { font-size: 12px; color: var(--text); margin-top: 6px; }
+.indicator-card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Annual returns table in Audit */
+.annual-returns-table {
+  width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px;
+}
+.annual-returns-table th {
+  text-align: left; padding: 8px 10px; color: var(--muted);
+  font-weight: 600; font-size: 11px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.annual-returns-table td {
+  padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.annual-returns-table .ret-pos { color: var(--green); font-weight: 600; }
+.annual-returns-table .ret-neg { color: var(--red); font-weight: 600; }
+.annual-returns-table .ret-bar {
+  display: inline-block; height: 4px; vertical-align: middle; margin-left: 6px;
+  border-radius: 2px;
+}
+
+/* UTXO warning */
+.utxo-card {
+  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(96,165,250,0.04));
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px; margin-top: 8px;
+}
+.utxo-card h4 { font-size: 14px; color: var(--accent); margin-bottom: 8px; }
+.utxo-card ul { padding-left: 20px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.utxo-card ul strong { color: var(--text); }
+.utxo-card .freq-table {
+  margin-top: 10px; width: 100%; font-size: 11px; border-collapse: collapse;
+}
+.utxo-card .freq-table th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 600; }
+.utxo-card .freq-table td { padding: 6px 8px; border-top: 1px solid var(--border); color: var(--text); }
+.utxo-card .freq-table .impact-high { color: var(--red); }
+.utxo-card .freq-table .impact-med  { color: var(--accent); }
+.utxo-card .freq-table .impact-low  { color: var(--green); }
+
+/* 5y horizon hint in goals form */
+.horizon-hint {
+  margin-top: 8px; padding: 8px 12px; border-radius: 6px;
+  background: rgba(245,158,11,0.08); border-left: 3px solid var(--accent);
+  font-size: 11px; color: var(--muted); display: none;
+}
+.horizon-hint.show { display: block; }
+.horizon-hint strong { color: var(--accent); }
+
 </style>
 </head>
 <body>
@@ -696,6 +781,12 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   <h3 class="section-h">📉 Recent Performance</h3>
   <div class="recent-grid" id="recent-grid"></div>
 
+  <h3 class="section-h">🌅 Timing Advantage (จากสถิติสากล 13 ปี)</h3>
+  <div id="timing-advantage-box" class="chart-box"></div>
+
+  <h3 class="section-h">📊 Indicators เสริม (RSI + Fear &amp; Greed)</h3>
+  <div id="extra-indicators" class="extra-indicators"></div>
+
   <div class="callout" style="margin-top: 24px;">
     <strong>💡 วิธีใช้:</strong> ตัวเลขนี้คำนวณจากข้อมูลล่าสุดที่ดึงจาก Bitkub
     ถ้าจะ refresh ใหม่ run <code>python scripts/fetch_bitkub.py &amp;&amp; python scripts/build_dashboard.py</code>
@@ -751,6 +842,10 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
       </label>
       <label data-mode="A,B,D">วันสิ้นสุด
         <input type="date" id="g-deadline">
+        <div id="g-horizon-hint" class="horizon-hint">
+          ⚠️ <strong>หลักการสากลแนะนำขั้นต่ำ 5 ปี</strong> เพื่อผ่าน 1 cycle เต็ม
+          (BTC drawdown สูงสุด −76.7% ใช้เวลา <strong>3 ปี 1 เดือน</strong> ในการ recover)
+        </div>
       </label>
       <label data-mode="B,C">งบ ฿/วัน (base)
         <input type="number" id="g-budget" step="100" min="100" value="1000">
@@ -825,12 +920,18 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
     <div class="notif-row">
       <label class="notif-toggle">
         <input type="checkbox" id="notif-enabled">
-        <span>เปิดใช้แจ้งเตือน</span>
+        <span>เปิดใช้แจ้งเตือนรายวัน</span>
       </label>
       <label>เวลาเตือน
         <input type="time" id="notif-time" value="08:30">
       </label>
       <button class="btn" id="btn-test-notif">🧪 ทดสอบแจ้งเตือน</button>
+    </div>
+    <div class="notif-row" style="margin-top: 12px;">
+      <label class="notif-toggle">
+        <input type="checkbox" id="notif-quarterly">
+        <span>🔁 เตือน Re-plan ทุก 90 วัน (Quarterly review ตามหลักการสากล)</span>
+      </label>
     </div>
     <div class="notif-status" id="notif-status"></div>
     <div class="muted" style="font-size: 11px; margin-top: 12px; line-height: 1.6;">
@@ -973,6 +1074,39 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
       <li>Fetcher dedupe โดย keep bar ที่ volume สูงกว่า (=complete daily aggregation)</li>
       <li>Decision logged ใน <code>data/btc_thb_daily.json::deduplicated</code></li>
     </ul>
+  </div>
+
+  <div class="audit-section">
+    <h3>📈 BTC Annual Returns (2014–2026)</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+      จาก PDF "หลักการ DCA Bitcoin สากล" Section 2 — แสดงให้เห็นความผันผวนระดับ ±100%/ปี
+      ที่นักลงทุน DCA ต้องเตรียมใจรับ การถือนาน <strong>5 ปีขึ้นไป</strong> เป็นข้อแนะนำสากลเพื่อผ่าน 1 cycle ครบ
+    </p>
+    <table class="annual-returns-table" id="annual-returns-table"></table>
+  </div>
+
+  <div class="audit-section">
+    <h3>⚙️ UTXO Management — สิ่งที่ DCA users ต้องระวัง</h3>
+    <div class="utxo-card">
+      <h4>ทำไมการ DCA บ่อยเกินไป + ถอนเข้าวอลเล็ตทุกครั้ง = ปัญหา?</h4>
+      <ul>
+        <li>ทุกครั้งที่โอน BTC = สร้าง <strong>UTXO</strong> ใหม่ใน wallet</li>
+        <li>เมื่อจะใช้/โอนต่อในอนาคต = ค่าธรรมเนียม network ขึ้นกับ <strong>จำนวน UTXO</strong></li>
+        <li>UTXO ขนาดเล็กมาก (มูลค่า &lt; ค่าโอน) = "<strong>Dust</strong>" — ใช้งานจริงไม่ได้</li>
+      </ul>
+      <table class="freq-table">
+        <thead><tr><th>ขนาดซื้อ</th><th>ความถี่โอน</th><th>UTXO/ปี</th><th>ผลกระทบ</th></tr></thead>
+        <tbody>
+          <tr><td>$10</td><td>ทุกวัน</td><td>365</td><td class="impact-high">สูงมาก ⚠️</td></tr>
+          <tr><td>$100</td><td>ทุกสัปดาห์</td><td>52</td><td class="impact-med">ปานกลาง</td></tr>
+          <tr><td>$500</td><td>ทุกเดือน</td><td>12</td><td class="impact-low">ต่ำ ✅</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);">
+        💡 <strong>คำแนะนำ:</strong> สะสมใน exchange ก่อน → โอนเข้า self-custody เมื่อยอดถึง <strong>≥ 100,000 sats (~$100)</strong>
+        + ทำ "UTXO consolidation" ในช่วงค่าธรรมเนียม network ต่ำ
+      </div>
+    </div>
   </div>
 
   <div class="audit-section">
@@ -1329,6 +1463,10 @@ function renderToday() {
 
   // Recent context
   renderRecentGrid(t);
+
+  // Phase 10: timing + indicators
+  renderTimingAdvantage(t);
+  renderExtraIndicators(t);
 }
 
 function renderThresholdBar(t) {
@@ -1463,6 +1601,124 @@ function renderMayerHistogram(t) {
   });
 }
 
+function renderTimingAdvantage(t) {
+  const box = document.getElementById('timing-advantage-box');
+  if (!box) return;
+  const ta = t.timing_advantage;
+  if (!ta) { box.innerHTML = ''; return; }
+  const totalCls = ta.total_advantage_pct >= 5 ? 'pos' : ta.total_advantage_pct < -2 ? 'neg' : '';
+  let highlight = '';
+  if (ta.best_day) highlight = '🏆 <strong style="color:var(--green)">วันที่ดีที่สุด!</strong> วันจันทร์ + ต้นเดือน';
+  else if (ta.is_monday) highlight = '🟢 <strong>วันจันทร์</strong> — สถิติเป็นวันที่ราคามักทำจุดต่ำสุดของสัปดาห์';
+  else if (ta.is_first_or_second) highlight = '🟢 <strong>วันที่ ' + ta.day_of_month + '</strong> — ต้นเดือน มีโอกาสเป็นจุดต่ำของเดือน';
+  else if (ta.day_of_month >= 29) highlight = '🟠 <strong>ปลายเดือน</strong> — มักเป็นจุดสูง อาจรอวันต้นเดือนหน้าจะดีกว่า';
+
+  box.innerHTML = `
+    <div class="timing-grid">
+      <div class="timing-cell">
+        <div class="k">วันในสัปดาห์</div>
+        <div class="v">${ta.day_of_week_th}</div>
+        <div class="sub">${ta.day_of_week_advantage_pct >= 0 ? '+' : ''}${ta.day_of_week_advantage_pct.toFixed(2)}% advantage</div>
+      </div>
+      <div class="timing-cell">
+        <div class="k">วันในเดือน</div>
+        <div class="v">${ta.day_of_month}</div>
+        <div class="sub">${ta.day_of_month_label} (${ta.day_of_month_advantage_pct >= 0 ? '+' : ''}${ta.day_of_month_advantage_pct.toFixed(2)}%)</div>
+      </div>
+      <div class="timing-total">
+        <div class="num ${totalCls}">${ta.total_advantage_pct >= 0 ? '+' : ''}${ta.total_advantage_pct.toFixed(1)}%</div>
+        <div class="lbl">รวม timing advantage</div>
+      </div>
+    </div>
+    ${highlight ? '<div style="margin-top:12px;font-size:13px;">' + highlight + '</div>' : ''}
+    <div class="timing-source">📚 ${ta.source} · จันทร์ +14.36%, วันที่ 1 +6.83%, วันที่ 2 +3.73%</div>
+  `;
+}
+
+function rsiVerdict(rsi) {
+  if (rsi == null) return { cls: 'rsi-normal', label: '—', verdict: 'ไม่มีข้อมูล' };
+  if (rsi < 30) return { cls: 'rsi-oversold', label: '🟢 Oversold', verdict: 'RSI < 30 — ราคา oversold (โอกาสซื้อ)' };
+  if (rsi > 70) return { cls: 'rsi-overbought', label: '🔴 Overbought', verdict: 'RSI > 70 — ราคา overbought (ระมัดระวัง)' };
+  return { cls: 'rsi-normal', label: '🔵 Normal', verdict: `RSI ${rsi.toFixed(0)} — neutral zone` };
+}
+
+function fgVerdict(fg) {
+  if (!fg) return null;
+  const v = fg.value;
+  let cls, label, multSuggest;
+  if (v < 25) { cls = 'fg-extreme-fear';  label = '🟢 Extreme Fear';  multSuggest = '1.5–2x — ตลาดตระหนก'; }
+  else if (v < 45) { cls = 'fg-fear';     label = '🟢 Fear';          multSuggest = '1.2–1.5x'; }
+  else if (v < 55) { cls = 'fg-neutral';  label = '🔵 Neutral';       multSuggest = '1x ปกติ'; }
+  else if (v < 75) { cls = 'fg-greed';    label = '🟠 Greed';         multSuggest = '0.75x — ระมัดระวัง'; }
+  else             { cls = 'fg-extreme-greed'; label = '🔴 Extreme Greed'; multSuggest = '0.25–0.5x — ฟองสบู่'; }
+  return { cls, label, multSuggest, value: v, classification: fg.classification };
+}
+
+function renderExtraIndicators(t) {
+  const container = document.getElementById('extra-indicators');
+  if (!container) return;
+  const rsi = t.rsi_14;
+  const rsiPrev = t.rsi_14_5d_ago;
+  const rsiInfo = rsiVerdict(rsi);
+  const rsiTrend = (rsi != null && rsiPrev != null)
+    ? (rsi > rsiPrev ? '↑' : rsi < rsiPrev ? '↓' : '→') + ` (5d: ${rsiPrev.toFixed(0)})`
+    : '';
+
+  const fg = fgVerdict(t.fear_greed);
+
+  let html = `
+    <div class="indicator-card ${rsiInfo.cls}">
+      <div class="label">RSI(14)</div>
+      <div class="value">${rsi != null ? rsi.toFixed(1) : '—'}</div>
+      <div class="verdict">${rsiInfo.label}</div>
+      <div class="sub">${rsiInfo.verdict} ${rsiTrend}</div>
+    </div>
+  `;
+  if (fg) {
+    html += `
+      <div class="indicator-card ${fg.cls}">
+        <div class="label">Fear &amp; Greed Index</div>
+        <div class="value">${fg.value}</div>
+        <div class="verdict">${fg.label}</div>
+        <div class="sub">${fg.classification} → แนะนำ multiplier ${fg.multSuggest}</div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="indicator-card">
+        <div class="label">Fear &amp; Greed</div>
+        <div class="value">—</div>
+        <div class="verdict">ไม่มีข้อมูล</div>
+        <div class="sub">API alternative.me ไม่ตอบ — รอ build ครั้งถัดไป</div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+function renderAnnualReturnsTable() {
+  const t = DATA.today;
+  if (!t?.annual_returns) return;
+  const tbl = document.getElementById('annual-returns-table');
+  if (!tbl) return;
+  const maxAbs = Math.max(...t.annual_returns.map(r => Math.abs(r.return_pct)));
+  let html = '<thead><tr><th>ปี ค.ศ.</th><th style="text-align:right">ผลตอบแทน</th><th>สภาวะ</th></tr></thead><tbody>';
+  t.annual_returns.forEach(r => {
+    const cls = r.return_pct >= 0 ? 'ret-pos' : 'ret-neg';
+    const barW = (Math.abs(r.return_pct) / maxAbs * 80).toFixed(0);
+    const barColor = r.return_pct >= 0 ? '#22c55e' : '#ef4444';
+    html += `<tr>
+      <td><strong>${r.year}</strong></td>
+      <td style="text-align:right" class="${cls}">${r.return_pct >= 0 ? '+' : ''}${r.return_pct.toFixed(2)}%
+        <span class="ret-bar" style="width:${barW}px; background:${barColor}; opacity:0.5;"></span>
+      </td>
+      <td style="color:var(--muted)">${r.phase}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
 function renderRecentGrid(t) {
   const grid = document.getElementById('recent-grid');
   grid.innerHTML = '';
@@ -1560,10 +1816,21 @@ function applyFormMode() {
   });
 }
 
+function checkHorizonHint() {
+  const startEl = document.getElementById('g-start');
+  const deadlineEl = document.getElementById('g-deadline');
+  const hint = document.getElementById('g-horizon-hint');
+  if (!startEl?.value || !deadlineEl?.value || !hint) return;
+  const days = daysBetween(startEl.value, deadlineEl.value);
+  if (days > 0 && days < 365 * 5) hint.classList.add('show');
+  else hint.classList.remove('show');
+}
+
 // ── CRUD ──────────────────────────────────────────────────────────
 function showGoalForm(goal) {
   const f = document.getElementById('goal-form');
   document.getElementById('goal-form-title').textContent = goal ? 'แก้ไขเป้าหมาย' : 'เพิ่มเป้าหมายใหม่';
+  setTimeout(checkHorizonHint, 50);
   document.getElementById('g-name').value = goal?.name || '';
   document.getElementById('g-strategy').value = goal?.strategy || 'mayer';
   document.getElementById('g-start').value = goal?.start_date || todayISO();
@@ -2417,18 +2684,31 @@ function fireNotification(testMode = false) {
 
 function tickNotification() {
   const cfg = loadNotifConfig();
-  if (!cfg.enabled) return;
   if (Notification.permission !== 'granted') return;
   const now = new Date();
-  const [h, m] = (cfg.time || '08:30').split(':').map(Number);
-  if (now.getHours() === h && now.getMinutes() === m) {
-    const today = todayISO();
-    if (cfg.last_fired !== today) {
+  const today = todayISO();
+
+  // Daily notification
+  if (cfg.enabled) {
+    const [h, m] = (cfg.time || '08:30').split(':').map(Number);
+    if (now.getHours() === h && now.getMinutes() === m && cfg.last_fired !== today) {
       const fired = fireNotification();
-      if (fired) {
-        cfg.last_fired = today;
+      if (fired) { cfg.last_fired = today; saveNotifConfig(cfg); }
+    }
+  }
+
+  // Quarterly review reminder (every 90 days from anchor)
+  if (cfg.quarterly && cfg.quarterly_anchor) {
+    const daysSinceAnchor = daysBetween(cfg.quarterly_anchor, today);
+    if (daysSinceAnchor > 0 && daysSinceAnchor % 90 === 0 && cfg.last_quarterly_fired !== today) {
+      try {
+        new Notification('🔁 Quarterly Review — เวลา re-plan!', {
+          body: `ครบ ${daysSinceAnchor} วันแล้ว — เปิด dashboard เช็ค progress + ปรับงบตาม Auto Re-plan`,
+          tag: 'dca-quarterly-' + today,
+        });
+        cfg.last_quarterly_fired = today;
         saveNotifConfig(cfg);
-      }
+      } catch (e) {}
     }
   }
 }
@@ -2437,6 +2717,7 @@ function renderNotifBox() {
   const cfg = loadNotifConfig();
   document.getElementById('notif-enabled').checked = !!cfg.enabled;
   document.getElementById('notif-time').value = cfg.time || '08:30';
+  document.getElementById('notif-quarterly').checked = !!cfg.quarterly;
   const status = document.getElementById('notif-status');
   const perm = permissionStatus();
   if (perm === 'unsupported') {
@@ -2460,6 +2741,8 @@ function initGoalsTab() {
   document.getElementById('btn-cancel-goal').onclick = hideGoalForm;
   document.getElementById('btn-save-goal').onclick = saveGoalFromForm;
   document.getElementById('g-mode').onchange = applyFormMode;
+  document.getElementById('g-start').addEventListener('change', checkHorizonHint);
+  document.getElementById('g-deadline').addEventListener('change', checkHorizonHint);
 
   document.getElementById('btn-cancel-log').onclick = hideLogForm;
   document.getElementById('btn-save-log').onclick = saveLogFromForm;
@@ -2503,6 +2786,14 @@ function initGoalsTab() {
   document.getElementById('notif-time').onchange = (e) => {
     const cfg = loadNotifConfig();
     cfg.time = e.target.value;
+    saveNotifConfig(cfg); renderNotifBox();
+  };
+  document.getElementById('notif-quarterly').onchange = (e) => {
+    const cfg = loadNotifConfig();
+    cfg.quarterly = e.target.checked;
+    if (cfg.quarterly && !cfg.quarterly_anchor) {
+      cfg.quarterly_anchor = todayISO();
+    }
     saveNotifConfig(cfg); renderNotifBox();
   };
   document.getElementById('btn-test-notif').onclick = async () => {
@@ -2973,6 +3264,7 @@ function renderAudit() {
     <span class="k">Daily amount</span><span class="v">฿${m.daily_amount_thb.toLocaleString()}</span>
     <span class="k">Generated</span><span class="v">${m.generated_at}</span>
   `;
+  renderAnnualReturnsTable();
 }
 
 // =====================================================================

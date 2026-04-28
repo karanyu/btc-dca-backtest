@@ -105,6 +105,106 @@ def collect_goal_reference(rolling_out: dict) -> dict:
     return ref
 
 
+def fetch_fear_greed() -> dict | None:
+    """Fetch current Fear & Greed Index from alternative.me API.
+
+    Free public API, no auth needed. Returns None on failure (graceful degrade).
+    """
+    import requests
+    try:
+        r = requests.get("https://api.alternative.me/fng/?limit=1", timeout=10)
+        r.raise_for_status()
+        data = r.json()["data"][0]
+        return {
+            "value": int(data["value"]),
+            "classification": data["value_classification"],
+            "timestamp": data["timestamp"],
+            "source": "alternative.me",
+        }
+    except Exception as e:
+        print(f"[fear_greed] WARN: fetch failed ({e}), skipping")
+        return None
+
+
+def compute_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
+    """Standard Wilder's RSI(14) on close prices."""
+    delta = prices.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = (-delta).where(delta < 0, 0)
+    avg_gain = gain.ewm(com=period - 1, min_periods=period).mean()
+    avg_loss = loss.ewm(com=period - 1, min_periods=period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
+def compute_timing_advantage(date: pd.Timestamp) -> dict:
+    """Returns timing advantage info from PDF stats (River Financial 2023 study).
+
+    Stats compounded from 13 years of BTC data (2010-2023).
+    """
+    # Day of week (0=Monday, 6=Sunday)
+    dow = date.weekday()
+    # Day of month (1-31)
+    dom = date.day
+
+    # Monday advantage: +14.36% (from PDF section 5.1)
+    dow_advantage = {
+        0: 14.36,    # Monday — best
+        1: 0.0,      # Tuesday — neutral baseline
+        2: -2.0,     # Wednesday
+        3: -4.0,     # Thursday
+        4: -3.0,     # Friday
+        5: -2.0,     # Saturday
+        6: -3.36,    # Sunday — opposite of Monday
+    }
+    dow_names = {0: "จันทร์", 1: "อังคาร", 2: "พุธ", 3: "พฤหัสฯ", 4: "ศุกร์", 5: "เสาร์", 6: "อาทิตย์"}
+
+    # Day-of-month advantage
+    if dom == 1:
+        dom_advantage, dom_label = 6.83, "วันที่ 1 ของเดือน — top advantage"
+    elif dom == 2:
+        dom_advantage, dom_label = 3.73, "วันที่ 2 ของเดือน — high advantage"
+    elif dom <= 7:
+        dom_advantage, dom_label = 1.5, f"ต้นเดือน (วันที่ {dom})"
+    elif dom >= 29:
+        dom_advantage, dom_label = -3.0, f"ปลายเดือน (วันที่ {dom}) — มักเป็นจุดสูง"
+    else:
+        dom_advantage, dom_label = 0.0, f"กลางเดือน (วันที่ {dom})"
+
+    total_advantage = dow_advantage[dow] + dom_advantage
+    return {
+        "day_of_week": dow,
+        "day_of_week_th": dow_names[dow],
+        "day_of_week_advantage_pct": dow_advantage[dow],
+        "day_of_month": dom,
+        "day_of_month_label": dom_label,
+        "day_of_month_advantage_pct": dom_advantage,
+        "total_advantage_pct": total_advantage,
+        "is_monday": dow == 0,
+        "is_first_or_second": dom in (1, 2),
+        "best_day": dow == 0 and dom in (1, 2),  # combo!
+        "source": "PDF Sec 5 (River Financial 2023, 13y stats)",
+    }
+
+
+# Annual returns from PDF Table 2 (Section 2)
+BTC_ANNUAL_RETURNS = [
+    {"year": 2014, "return_pct": -29.99, "phase": "หลัง ATH 2013"},
+    {"year": 2015, "return_pct": 34.47,  "phase": "Accumulation Phase"},
+    {"year": 2016, "return_pct": 123.83, "phase": "ก่อน/หลัง Halving"},
+    {"year": 2017, "return_pct": 1368.90, "phase": "Bull market (Euphoria)"},
+    {"year": 2018, "return_pct": -73.56, "phase": "Bear market"},
+    {"year": 2019, "return_pct": 92.20,  "phase": "Recovery"},
+    {"year": 2020, "return_pct": 303.16, "phase": "COVID liquidity"},
+    {"year": 2021, "return_pct": 59.67,  "phase": "Double-top cycle"},
+    {"year": 2022, "return_pct": -64.27, "phase": "Crypto winter / rate hikes"},
+    {"year": 2023, "return_pct": 155.42, "phase": "ETF anticipation"},
+    {"year": 2024, "return_pct": 121.05, "phase": "Spot ETF + ATH"},
+    {"year": 2025, "return_pct": -6.34,  "phase": "Consolidation"},
+    {"year": 2026, "return_pct": -12.13, "phase": "Current YTD"},
+]
+
+
 def collect_today_state(df_full: pd.DataFrame) -> dict:
     """Compute today's DCA recommendation per strategy, with full context.
 
@@ -112,6 +212,13 @@ def collect_today_state(df_full: pd.DataFrame) -> dict:
     """
     last = df_full.iloc[-1]
     df_clean = df_full.dropna(subset=["mayer", "sma_140", "sma_200", "bb_lo", "bb_up"])
+
+    # Phase 10: extra indicators from PDF principles
+    rsi_series = compute_rsi(df_full["c"])
+    rsi_today = float(rsi_series.iloc[-1]) if not pd.isna(rsi_series.iloc[-1]) else None
+    rsi_5d_ago = float(rsi_series.iloc[-6]) if len(rsi_series) > 6 else None
+    timing = compute_timing_advantage(last["date"])
+    fear_greed = fetch_fear_greed()
 
     # Recent context
     def back_pct(days):
@@ -210,6 +317,11 @@ def collect_today_state(df_full: pd.DataFrame) -> dict:
         },
         "decisions": today_decisions,
         "thresholds": thresholds,
+        "rsi_14": round(rsi_today, 2) if rsi_today is not None else None,
+        "rsi_14_5d_ago": round(rsi_5d_ago, 2) if rsi_5d_ago is not None else None,
+        "timing_advantage": timing,
+        "fear_greed": fear_greed,
+        "annual_returns": BTC_ANNUAL_RETURNS,
         "mayer_history": [round(v, 4) for v in mayer_hist],
         "mayer_percentile": round(mayer_pct_below, 1),
         "mayer_stats": {
