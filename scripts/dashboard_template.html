@@ -151,27 +151,51 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
 }
 .public-disclaimer strong { color: var(--accent); }
 
+/* Phase 12 — Welcome / Onboarding */
+.welcome-banner {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 18px;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(34,197,94,0.10), rgba(245,158,11,0.05));
+  border: 1.5px solid var(--green); border-radius: 14px;
+  padding: 18px 22px; margin-bottom: 24px;
+}
+.welcome-banner .welcome-icon { font-size: 36px; line-height: 1; }
+.welcome-banner .welcome-title { font-size: 18px; font-weight: 800; color: var(--text); }
+.welcome-banner .welcome-text { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.6; }
+.welcome-banner .welcome-cta {
+  padding: 12px 20px; font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .welcome-banner { grid-template-columns: 1fr; text-align: center; }
+}
+
 /* ====================================================================
    "DCA วันนี้" — Today's recommendation tab
 ==================================================================== */
 .section-h {
-  font-size: 14px; font-weight: 600; color: var(--text);
-  margin: 24px 0 12px; letter-spacing: 0.02em;
+  font-size: 15px; font-weight: 700; color: var(--text);
+  margin: 28px 0 14px; letter-spacing: 0.01em;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-h::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(to right, var(--border), transparent);
+  margin-left: 8px;
 }
 .today-hero {
   background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(34,197,94,0.05));
   border: 1px solid var(--border); border-radius: 14px;
-  padding: 22px 26px; margin-bottom: 8px;
-  display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+  padding: 26px 28px; margin-bottom: 16px;
+  display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center;
 }
-.today-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-.today-price { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; }
-.today-context { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.today-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; font-weight: 600; }
+.today-price { font-size: 36px; font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -0.02em; }
+.today-context { font-size: 12px; color: var(--muted); margin-top: 10px; }
 .today-context .pos { color: var(--green); font-weight: 600; }
 .today-context .neg { color: var(--red); font-weight: 600; }
 .today-hero-right { text-align: right; }
 .today-mayer {
-  font-size: 36px; font-weight: 800; line-height: 1;
+  font-size: 42px; font-weight: 800; line-height: 1; letter-spacing: -0.02em;
 }
 .today-mayer.zone-deep    { color: #f43f5e; }   /* < 0.8 */
 .today-mayer.zone-buy     { color: var(--green); }  /* 0.8-1.0 */
@@ -626,6 +650,43 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   background: rgba(245,158,11,0.08); border-radius: 6px; margin-top: 8px;
 }
 
+/* Phase 12 — Progressive Disclosure sections */
+.disclosure-section {
+  margin: 16px 0;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.disclosure-section > summary {
+  padding: 12px 18px; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  background: var(--panel2); list-style: none;
+  display: flex; align-items: center; gap: 8px;
+  user-select: none;
+}
+.disclosure-section > summary::-webkit-details-marker { display: none; }
+.disclosure-section > summary::before {
+  content: '▶'; color: var(--muted); font-size: 10px; transition: transform 0.2s;
+  display: inline-block;
+}
+.disclosure-section[open] > summary::before { transform: rotate(90deg); }
+.disclosure-section > summary:hover { background: var(--panel); }
+.disclosure-section[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.disclosure-section > *:not(summary) {
+  padding: 14px 18px;
+}
+.disclosure-section > .chart-box {
+  margin: 14px 18px;
+  padding: 16px;
+}
+.disclosure-section .recent-grid { padding: 14px 18px; }
+
+.sub-h {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  margin: 12px 18px 8px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
 /* ====================================================================
    PHASE 10 — PDF principles (timing, RSI, F&G, annual returns, UTXO)
 ==================================================================== */
@@ -814,6 +875,21 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   <a href="https://github.com/karanyu/btc-dca-backtest" target="_blank" rel="noopener" style="color: var(--accent);">📂 Source code</a>
 </div>
 
+<!-- Phase 12: Welcome banner — only shown when no goals exist -->
+<div id="welcome-banner" class="welcome-banner hidden">
+  <div class="welcome-icon">👋</div>
+  <div class="welcome-body">
+    <div class="welcome-title">เริ่มต้นที่นี่</div>
+    <div class="welcome-text">
+      ตั้งเป้าหมายแรกของคุณเพื่อรับ <strong>คำแนะนำ DCA รายวัน</strong> ตามกลยุทธ์ที่เหมาะกับคุณ
+      <br><span class="muted">ระบบจะคำนวณงบที่ต้องลง + แสดง progress + ส่งแจ้งเตือนรายวัน</span>
+    </div>
+  </div>
+  <button class="btn primary welcome-cta" id="welcome-start-btn">
+    🎯 ตั้งเป้าหมายแรก →
+  </button>
+</div>
+
 <div class="tabs">
   <button class="tab active" data-view="today">📅 DCA วันนี้</button>
   <button class="tab" data-view="goals">🎯 เป้าหมายของฉัน</button>
@@ -848,29 +924,37 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   <h3 class="section-h">📊 ทุกกลยุทธ์เปรียบเทียบ (reference)</h3>
   <div class="today-cards" id="today-cards"></div>
 
-  <h3 class="section-h">🎯 Threshold Map — ราคาที่ trigger แต่ละ tier</h3>
-  <div class="chart-box">
-    <div class="threshold-bar" id="threshold-bar"></div>
-    <table class="thresholds-table" id="thresholds-table">
-      <thead><tr><th>Threshold</th><th>ราคา</th><th>ต้องเปลี่ยนไป</th><th>ความหมาย</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <details class="disclosure-section" id="ds-threshold">
+    <summary>🎯 Threshold Map — ราคาที่ trigger แต่ละ tier</summary>
+    <div class="chart-box">
+      <div class="threshold-bar" id="threshold-bar"></div>
+      <table class="thresholds-table" id="thresholds-table">
+        <thead><tr><th>Threshold</th><th>ราคา</th><th>ต้องเปลี่ยนไป</th><th>ความหมาย</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </details>
 
-  <h3 class="section-h">📈 Mayer Multiple — ตำแหน่งปัจจุบันใน 5 ปีที่ผ่านมา</h3>
-  <div class="chart-box">
-    <div class="chart-canvas-wrap"><canvas id="mayer-hist"></canvas></div>
-    <div class="mayer-stats" id="mayer-stats"></div>
-  </div>
+  <details class="disclosure-section" id="ds-mayer-hist">
+    <summary>📈 Mayer Multiple — ตำแหน่งปัจจุบันใน 5 ปีที่ผ่านมา</summary>
+    <div class="chart-box">
+      <div class="chart-canvas-wrap"><canvas id="mayer-hist"></canvas></div>
+      <div class="mayer-stats" id="mayer-stats"></div>
+    </div>
+  </details>
 
-  <h3 class="section-h">📉 Recent Performance</h3>
-  <div class="recent-grid" id="recent-grid"></div>
+  <details class="disclosure-section" id="ds-recent">
+    <summary>📉 Recent Performance — 1mo / 3mo / 1y</summary>
+    <div class="recent-grid" id="recent-grid"></div>
+  </details>
 
-  <h3 class="section-h">🌅 Timing Advantage (จากสถิติสากล 13 ปี)</h3>
-  <div id="timing-advantage-box" class="chart-box"></div>
-
-  <h3 class="section-h">📊 Indicators เสริม (RSI + Fear &amp; Greed)</h3>
-  <div id="extra-indicators" class="extra-indicators"></div>
+  <details class="disclosure-section" id="ds-timing-extra">
+    <summary>🌅 Timing Advantage + 📊 RSI / Fear &amp; Greed</summary>
+    <h4 class="sub-h">🌅 Timing Advantage (จากสถิติสากล 13 ปี)</h4>
+    <div id="timing-advantage-box" class="chart-box"></div>
+    <h4 class="sub-h">📊 Indicators เสริม (RSI + Fear &amp; Greed)</h4>
+    <div id="extra-indicators" class="extra-indicators"></div>
+  </details>
 
   <div class="callout" style="margin-top: 24px;">
     <strong>💡 วิธีใช้:</strong> ตัวเลขนี้คำนวณจากข้อมูลล่าสุดที่ดึงจาก Bitkub
@@ -1466,9 +1550,17 @@ function getGoalBaseBudget(goal, scen) {
   return goal.budget_thb || 1000;
 }
 
+function updateWelcomeBanner() {
+  const banner = document.getElementById('welcome-banner');
+  if (!banner) return;
+  const hasGoals = loadGoals().length > 0;
+  banner.classList.toggle('hidden', hasGoals);
+}
+
 function renderTodayGoalActions() {
   const container = document.getElementById('today-goal-actions');
   const goals = loadGoals();
+  updateWelcomeBanner();
 
   if (goals.length === 0) {
     container.innerHTML = `
@@ -1550,29 +1642,36 @@ function renderTodayGoalActions() {
   });
 }
 
+// Phase 12: lazy chart rendering — track which sections need rendering
+const lazyRenderQueue = new Set();
+
 function renderToday() {
   const t = DATA.today;
   if (!t) return;
   renderTodaySummary();
   renderTodayGoalActions();
 
-  // Hero — date, price, mayer
+  // Hero — date, price, mayer (Phase 12: simplified — primary numbers only)
   document.getElementById('today-date').textContent = t.as_of_date;
   document.getElementById('today-price').textContent = fmtTHB(t.price);
   const ind = t.indicators;
+  // Phase 12: cleaner context — show short comparison + tooltip on hover
   const ctxEl = document.getElementById('today-context');
+  const sma20Cls = ind.price_vs_sma20w_pct >= 0 ? 'pos' : 'neg';
+  const sma200Cls = ind.price_vs_sma200_pct >= 0 ? 'pos' : 'neg';
   ctxEl.innerHTML =
-    `vs SMA 20W (฿${ind.sma_20w.toLocaleString('en-US', {maximumFractionDigits: 0})}): ` +
-    `<span class="${ind.price_vs_sma20w_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(ind.price_vs_sma20w_pct)}</span>` +
-    ` &nbsp;·&nbsp; vs SMA 200 (฿${ind.sma_200.toLocaleString('en-US', {maximumFractionDigits: 0})}): ` +
-    `<span class="${ind.price_vs_sma200_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(ind.price_vs_sma200_pct)}</span>`;
+    `<span class="${sma20Cls}" title="ราคาเทียบ SMA 20 สัปดาห์ (฿${ind.sma_20w.toLocaleString('en-US', {maximumFractionDigits: 0})})">SMA 20W ${fmtPct(ind.price_vs_sma20w_pct)}</span>` +
+    ` &nbsp;·&nbsp; ` +
+    `<span class="${sma200Cls}" title="ราคาเทียบ SMA 200 (฿${ind.sma_200.toLocaleString('en-US', {maximumFractionDigits: 0})})">SMA 200 ${fmtPct(ind.price_vs_sma200_pct)}</span>`;
 
   const zone = mayerZone(ind.mayer);
   const mayerEl = document.getElementById('today-mayer');
   mayerEl.textContent = ind.mayer.toFixed(3);
   mayerEl.className = 'today-mayer ' + zone.cls;
+  // Phase 12: cleaner mayer subtitle — single line, less words
   document.getElementById('today-mayer-pct').innerHTML =
-    `${zone.label}<br>P${t.mayer_percentile.toFixed(0)} ของ 5 ปี (ต่ำกว่านี้ = ถูกกว่าค่าเฉลี่ย)`;
+    `<strong style="color:var(--text);font-size:13px">${zone.label}</strong>` +
+    `<br><span title="Percentile ของ Mayer Multiple ใน 5 ปีที่ผ่านมา">P${t.mayer_percentile.toFixed(0)} of 5y</span>`;
 
   // Strategy cards
   const cards = document.getElementById('today-cards');
@@ -1614,9 +1713,24 @@ function renderToday() {
   // Recent context
   renderRecentGrid(t);
 
-  // Phase 10: timing + indicators
-  renderTimingAdvantage(t);
-  renderExtraIndicators(t);
+  // Phase 12: defer expensive renders until disclosure section is opened
+  attachLazyRenderListeners(t);
+}
+
+function attachLazyRenderListeners(t) {
+  const sectionMap = [
+    { id: 'ds-threshold',    fn: () => { renderThresholdBar(t); renderThresholdsTable(t); } },
+    { id: 'ds-mayer-hist',   fn: () => renderMayerHistogram(t) },
+    { id: 'ds-timing-extra', fn: () => { renderTimingAdvantage(t); renderExtraIndicators(t); } },
+  ];
+  sectionMap.forEach(({ id, fn }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.open && !lazyRenderQueue.has(id)) { fn(); lazyRenderQueue.add(id); }
+    el.addEventListener('toggle', () => {
+      if (el.open && !lazyRenderQueue.has(id)) { fn(); lazyRenderQueue.add(id); }
+    });
+  });
 }
 
 function renderThresholdBar(t) {
@@ -2996,6 +3110,10 @@ function renderNotifBox() {
 // ── Wire up Goals tab events ──────────────────────────────────────
 function initGoalsTab() {
   document.getElementById('btn-new-goal').onclick = () => showGoalForm(null);
+  document.getElementById('welcome-start-btn').onclick = () => {
+    document.querySelectorAll('.tab')[1].click();  // switch to Goals tab
+    setTimeout(() => showGoalForm(null), 100);
+  };
   document.getElementById('btn-cancel-goal').onclick = hideGoalForm;
   document.getElementById('btn-save-goal').onclick = saveGoalFromForm;
   document.getElementById('g-mode').onchange = () => { applyFormMode(); helperRecompute(); };
@@ -3547,6 +3665,7 @@ function init() {
   });
   renderStratToggles();
   initGoalsTab();
+  updateWelcomeBanner();
 
   // Wire up goal selector in compare tab
   document.getElementById('compare-goal-select').onchange = (e) => {
