@@ -2,7 +2,7 @@
 
 **Source:** bitkub (https://api.bitkub.com/tradingview/history)  
 **Symbol:** BTC_THB @ 1D  
-**Fetched:** 2026-04-28T10:06:01.927927+00:00  
+**Fetched:** 2026-04-28T10:17:28.837151+00:00  
 **Range:** 2021-04-29 → 2026-04-28 (1826 bars)  
 
 ## Summary
@@ -26,9 +26,9 @@
 
 - Min: ฿568,036.66 on 2023-01-06
 - Max: ฿4,045,998.95 on 2025-10-06
-- Mean: ฿1,895,113.39
+- Mean: ฿1,895,113.13
 - Median: ฿1,628,193.91
-- Std: ฿967,944.58
+- Std: ฿967,944.42
 
 ## Return Statistics (daily close-to-close)
 
