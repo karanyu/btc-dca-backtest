@@ -1,0 +1,2195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BTC/THB DCA Backtest — Phase 3 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #060c18;
+  --panel: #0a0f1e;
+  --panel2: #0f172a;
+  --border: #1e293b;
+  --text: #f1f5f9;
+  --muted: #64748b;
+  --accent: #f59e0b;
+  --green: #22c55e;
+  --red: #ef4444;
+  --blue: #60a5fa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  font-family: 'IBM Plex Sans', 'Sarabun', 'Anuphan', system-ui, sans-serif;
+  font-size: 14px; line-height: 1.5;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+/* Header */
+.header { margin-bottom: 24px; }
+.header h1 {
+  font-size: 24px; font-weight: 700;
+  display: flex; align-items: center; gap: 12px;
+}
+.header h1::before {
+  content: ''; width: 6px; height: 28px;
+  background: var(--accent); border-radius: 3px;
+}
+.header .sub { color: var(--muted); font-size: 13px; padding-left: 18px; margin-top: 4px; }
+.header .badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  background: rgba(34,197,94,0.15); color: var(--green);
+  font-size: 11px; margin-left: 8px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 8px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 10px 18px; cursor: pointer; color: var(--muted);
+  background: transparent; border: none; font-size: 14px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: inherit;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* Controls */
+.controls {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px; margin-bottom: 20px;
+  display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
+}
+.control-group { display: flex; align-items: center; gap: 8px; }
+.control-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-group { display: flex; gap: 4px; }
+.btn {
+  padding: 6px 14px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+  font-size: 13px; font-family: inherit;
+}
+.btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.btn:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+.strat-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+.strat-toggle {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 16px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border);
+  font-size: 12px; user-select: none;
+}
+.strat-toggle.off { opacity: 0.4; }
+.strat-toggle .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Cards grid */
+.cards-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; margin-bottom: 20px;
+}
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; border-top: 3px solid var(--accent);
+}
+.card .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.card .strat-name { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.card .roi { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.card .roi.pos { color: var(--green); }
+.card .roi.neg { color: var(--red); }
+.card .stats { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+.card .stats span { color: var(--text); font-weight: 500; }
+
+/* Chart wrapper */
+.chart-box {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-bottom: 20px;
+}
+.chart-box h3 { font-size: 13px; color: var(--muted); margin-bottom: 12px; font-weight: 500; }
+.chart-canvas-wrap { position: relative; height: 360px; }
+
+/* Table */
+.table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { background: var(--panel2); padding: 10px 12px; text-align: right; color: var(--muted); font-weight: 600; font-size: 11px; }
+th:first-child { text-align: left; }
+td { padding: 9px 12px; text-align: right; border-top: 1px solid var(--border); }
+td:first-child { text-align: left; font-weight: 500; }
+tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.muted { color: var(--muted); }
+
+/* Audit view */
+.audit-section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+.audit-section h3 { font-size: 14px; margin-bottom: 10px; color: var(--accent); }
+.audit-section ul { padding-left: 20px; color: var(--muted); }
+.audit-section li { margin: 4px 0; }
+.audit-section li strong { color: var(--text); }
+.kvtable { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 12px; }
+.kvtable .k { color: var(--muted); }
+.kvtable .v { color: var(--text); font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+
+.callout {
+  background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px;
+}
+.callout strong { color: var(--accent); }
+
+.footer {
+  margin-top: 30px; padding: 16px; text-align: center; color: var(--muted); font-size: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.hidden { display: none !important; }
+
+.public-disclaimer {
+  background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+  font-size: 12px; line-height: 1.6;
+}
+.public-disclaimer strong { color: var(--accent); }
+
+/* ====================================================================
+   "DCA วันนี้" — Today's recommendation tab
+==================================================================== */
+.section-h {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin: 24px 0 12px; letter-spacing: 0.02em;
+}
+.today-hero {
+  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(34,197,94,0.05));
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 22px 26px; margin-bottom: 8px;
+  display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+}
+.today-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.today-price { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; }
+.today-context { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.today-context .pos { color: var(--green); font-weight: 600; }
+.today-context .neg { color: var(--red); font-weight: 600; }
+.today-hero-right { text-align: right; }
+.today-mayer {
+  font-size: 36px; font-weight: 800; line-height: 1;
+}
+.today-mayer.zone-deep    { color: #f43f5e; }   /* < 0.8 */
+.today-mayer.zone-buy     { color: var(--green); }  /* 0.8-1.0 */
+.today-mayer.zone-normal  { color: var(--blue); }   /* 1.0-2.4 */
+.today-mayer.zone-hot     { color: var(--accent); } /* > 2.4 */
+.today-mayer-pct { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* Today's strategy cards (different from comparison cards) */
+.today-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.today-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px; position: relative;
+  border-left: 4px solid var(--muted);
+}
+.today-card.action-buy   { border-left-color: var(--green); }
+.today-card.action-hold  { border-left-color: var(--muted); }
+.today-card.action-deep  { border-left-color: #f43f5e; }
+.today-card.action-cool  { border-left-color: var(--accent); }
+.today-card .name { font-size: 13px; font-weight: 600; color: var(--text); }
+.today-card .mult {
+  font-size: 28px; font-weight: 800; line-height: 1; margin: 8px 0 4px;
+}
+.today-card .mult.x1 { color: var(--muted); }
+.today-card .mult.x15 { color: var(--blue); }
+.today-card .mult.x2 { color: var(--green); }
+.today-card .mult.x3 { color: #f43f5e; }
+.today-card .mult.x05 { color: var(--accent); }
+.today-card .amount {
+  font-size: 14px; color: var(--text); font-weight: 600;
+}
+.today-card .reason {
+  font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5;
+}
+
+/* Threshold visual bar */
+.threshold-bar {
+  position: relative; height: 60px; margin: 12px 0 24px;
+  background: linear-gradient(to right,
+    #f43f5e 0%, #f59e0b 25%, #22c55e 45%,
+    #60a5fa 55%, #f59e0b 80%, #f43f5e 100%);
+  border-radius: 4px;
+}
+.threshold-bar .marker {
+  position: absolute; top: -4px; width: 2px; height: 68px;
+  background: var(--text);
+}
+.threshold-bar .marker::after {
+  content: attr(data-label); position: absolute; top: -16px;
+  font-size: 10px; color: var(--text); white-space: nowrap;
+  transform: translateX(-50%);
+}
+.threshold-bar .marker.now {
+  width: 4px; background: var(--accent); border-radius: 2px;
+  box-shadow: 0 0 8px rgba(245,158,11,0.6);
+}
+.threshold-bar .marker.now::after {
+  content: "ตอนนี้: " attr(data-price);
+  font-weight: 700; color: var(--accent); top: 64px;
+}
+
+.thresholds-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.thresholds-table th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 600; font-size: 11px; }
+.thresholds-table td { padding: 8px 10px; border-top: 1px solid var(--border); }
+.thresholds-table .threshold-active { background: rgba(245,158,11,0.08); }
+
+.mayer-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px; margin-top: 12px; font-size: 11px;
+}
+.mayer-stat {
+  background: var(--panel2); padding: 8px 10px; border-radius: 6px;
+  border-left: 2px solid var(--border);
+}
+.mayer-stat .k { color: var(--muted); }
+.mayer-stat .v { color: var(--text); font-weight: 600; font-size: 13px; }
+
+.recent-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.recent-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.recent-card .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.recent-card .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.recent-card .value.pos { color: var(--green); }
+.recent-card .value.neg { color: var(--red); }
+.recent-card .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .today-hero { grid-template-columns: 1fr; }
+  .today-hero-right { text-align: left; }
+}
+
+/* ====================================================================
+   TODAY SUMMARY — สรุปคำแนะนำวันนี้ (compact)
+==================================================================== */
+.today-summary {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 16px;
+  align-items: center; padding: 14px 18px; margin: 0 0 16px;
+  border-radius: 12px; border: 1px solid var(--border);
+}
+.today-summary.action-buy-deep    { background: linear-gradient(90deg, rgba(244,63,94,0.12), rgba(244,63,94,0.02)); border-color: #f43f5e; }
+.today-summary.action-buy         { background: linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.02)); border-color: var(--green); }
+.today-summary.action-buy-normal  { background: linear-gradient(90deg, rgba(96,165,250,0.10), rgba(96,165,250,0.02)); border-color: var(--blue); }
+.today-summary.action-careful     { background: linear-gradient(90deg, rgba(245,158,11,0.10), rgba(245,158,11,0.02)); border-color: var(--accent); }
+.today-summary.action-pause       { background: linear-gradient(90deg, rgba(100,116,139,0.10), rgba(100,116,139,0.02)); border-color: var(--muted); }
+
+.today-summary .ts-icon { font-size: 32px; line-height: 1; }
+.today-summary .ts-text { display: flex; flex-direction: column; gap: 4px; }
+.today-summary .ts-verdict { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.today-summary .ts-reason  { font-size: 12px; color: var(--muted); }
+.today-summary .ts-action {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.today-summary .ts-amount {
+  font-size: 22px; font-weight: 800; color: var(--accent);
+}
+.today-summary .ts-strategy {
+  font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
+}
+@media (max-width: 600px) {
+  .today-summary { grid-template-columns: 1fr; text-align: center; }
+  .today-summary .ts-action { align-items: center; }
+}
+
+/* ====================================================================
+   COMPARE TAB — Goal recommendation card
+==================================================================== */
+.compare-goal-row {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.compare-goal-row label { color: var(--muted); font-size: 12px; }
+.compare-goal-row select {
+  background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;
+}
+
+.recommendation-card {
+  background: linear-gradient(135deg, rgba(34,197,94,0.10), rgba(245,158,11,0.05));
+  border: 1.5px solid var(--green); border-radius: 14px;
+  padding: 18px 22px; margin-bottom: 20px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center;
+}
+.recommendation-card .rec-trophy { font-size: 36px; line-height: 1; }
+.recommendation-card .rec-body .rec-label {
+  font-size: 11px; color: var(--green); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+}
+.recommendation-card .rec-body .rec-name {
+  font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2;
+}
+.recommendation-card .rec-body .rec-reason { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.recommendation-card .rec-stats {
+  display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 14px;
+  font-size: 12px;
+}
+.recommendation-card .rec-stats .k { color: var(--muted); }
+.recommendation-card .rec-stats .v { color: var(--text); font-weight: 600; }
+@media (max-width: 700px) {
+  .recommendation-card { grid-template-columns: 1fr; }
+  .recommendation-card .rec-stats { grid-template-columns: 1fr 1fr; }
+}
+
+/* ====================================================================
+   GOALS — เป้าหมายของฉัน
+==================================================================== */
+.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { opacity: 0.9; }
+.btn.danger { color: var(--red); }
+.btn.danger:hover { background: rgba(239,68,68,0.1); border-color: var(--red); }
+
+.goal-toolbar {
+  display: flex; gap: 8px; align-items: center;
+  margin: 12px 0 16px;
+}
+
+.goal-form-box {
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 16px;
+}
+.goal-form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.goal-form-grid label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.goal-form-grid input,
+.goal-form-grid select {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; color: var(--text); font-family: inherit; font-size: 13px;
+  text-transform: none; letter-spacing: 0;
+}
+.goal-form-grid input:focus,
+.goal-form-grid select:focus {
+  outline: none; border-color: var(--accent);
+}
+.goal-form-actions { display: flex; gap: 8px; }
+
+.goal-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px 20px; margin-bottom: 12px;
+  border-left: 4px solid var(--accent);
+}
+.goal-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.goal-card-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.goal-card-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.goal-card-actions { display: flex; gap: 4px; }
+.goal-card-actions .btn { padding: 4px 10px; font-size: 11px; }
+
+.goal-progress-row { margin-bottom: 14px; }
+.goal-progress-label {
+  display: flex; justify-content: space-between; font-size: 12px;
+  color: var(--muted); margin-bottom: 4px;
+}
+.goal-progress-label strong { color: var(--text); }
+.goal-progress-bar {
+  height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden;
+}
+.goal-progress-fill {
+  height: 100%; background: linear-gradient(to right, var(--green), var(--accent));
+  border-radius: 4px; transition: width 0.3s;
+}
+
+.goal-status {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 600;
+}
+.goal-status.on-track  { background: rgba(34,197,94,0.15); color: var(--green); }
+.goal-status.behind    { background: rgba(239,68,68,0.15); color: var(--red); }
+.goal-status.ahead     { background: rgba(96,165,250,0.15); color: var(--blue); }
+.goal-status.completed { background: rgba(245,158,11,0.15); color: var(--accent); }
+
+.goal-scenarios {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px; margin-top: 10px;
+}
+.scenario-card {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px;
+}
+.scenario-card .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.scenario-card .value { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.scenario-card.pessimistic { border-left: 3px solid var(--red); }
+.scenario-card.median      { border-left: 3px solid var(--accent); }
+.scenario-card.optimistic  { border-left: 3px solid var(--green); }
+.scenario-card.flat        { border-left: 3px solid var(--muted); }
+
+.log-list {
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);
+  font-size: 11px;
+}
+.log-list-title { color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+.log-row {
+  display: grid; grid-template-columns: max-content max-content 1fr max-content;
+  gap: 12px; padding: 4px 0; align-items: center;
+}
+.log-row .date { color: var(--muted); font-family: monospace; }
+.log-row .thb { color: var(--text); font-weight: 600; }
+.log-row .price { color: var(--muted); }
+.log-row .btc { color: var(--green); font-family: monospace; text-align: right; }
+
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted); background: var(--panel); border-radius: 10px;
+  border: 1px dashed var(--border);
+}
+
+.notif-box {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 20px;
+}
+.notif-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.notif-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.notif-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.notif-row label { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.notif-row input[type=time] {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; color: var(--text); font-family: inherit;
+}
+.notif-status {
+  margin-top: 12px; padding: 8px 12px; border-radius: 6px;
+  font-size: 12px; background: var(--panel2);
+}
+.notif-status.granted { color: var(--green); }
+.notif-status.denied  { color: var(--red); }
+.notif-status.pending { color: var(--accent); }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="header">
+  <h1>BTC/THB DCA Backtest <span class="badge">Phase 3 Live</span></h1>
+  <p class="sub">5 strategies · real Bitkub daily data · fee-adjusted · monotonic-verified</p>
+</header>
+
+<div class="public-disclaimer">
+  <strong>⚠️ Educational only — ไม่ใช่คำแนะนำลงทุน</strong> ·
+  <span class="muted">ข้อมูลทั้งหมดมาจาก backtest อดีต ไม่การันตีอนาคต ·
+  ความรับผิดชอบทางการเงินทั้งหมดเป็นของผู้ใช้ ·
+  </span>
+  <a href="https://github.com/karanyu/btc-dca-backtest" target="_blank" rel="noopener" style="color: var(--accent);">📂 Source code</a>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-view="today">📅 DCA วันนี้</button>
+  <button class="tab" data-view="goals">🎯 เป้าหมายของฉัน</button>
+  <button class="tab" data-view="compare">เปรียบเทียบกลยุทธ์</button>
+  <button class="tab" data-view="rolling">การกระจาย Rolling</button>
+  <button class="tab" data-view="audit">ตรวจสอบข้อมูล</button>
+</div>
+
+<!-- ==================================================================
+     VIEW 0 — TODAY'S DCA RECOMMENDATION
+================================================================== -->
+<section id="view-today">
+
+  <div class="today-hero">
+    <div class="today-hero-left">
+      <div class="today-label">ราคา ณ วันที่ <span id="today-date"></span></div>
+      <div class="today-price" id="today-price"></div>
+      <div class="today-context" id="today-context"></div>
+    </div>
+    <div class="today-hero-right">
+      <div class="today-label">Mayer Multiple ปัจจุบัน</div>
+      <div class="today-mayer" id="today-mayer"></div>
+      <div class="today-mayer-pct" id="today-mayer-pct"></div>
+    </div>
+  </div>
+
+  <div id="today-summary" class="today-summary"></div>
+
+  <h3 class="section-h">📊 คำแนะนำ DCA วันนี้</h3>
+  <div class="today-cards" id="today-cards"></div>
+
+  <h3 class="section-h">🎯 Threshold Map — ราคาที่ trigger แต่ละ tier</h3>
+  <div class="chart-box">
+    <div class="threshold-bar" id="threshold-bar"></div>
+    <table class="thresholds-table" id="thresholds-table">
+      <thead><tr><th>Threshold</th><th>ราคา</th><th>ต้องเปลี่ยนไป</th><th>ความหมาย</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h3 class="section-h">📈 Mayer Multiple — ตำแหน่งปัจจุบันใน 5 ปีที่ผ่านมา</h3>
+  <div class="chart-box">
+    <div class="chart-canvas-wrap"><canvas id="mayer-hist"></canvas></div>
+    <div class="mayer-stats" id="mayer-stats"></div>
+  </div>
+
+  <h3 class="section-h">📉 Recent Performance</h3>
+  <div class="recent-grid" id="recent-grid"></div>
+
+  <div class="callout" style="margin-top: 24px;">
+    <strong>💡 วิธีใช้:</strong> ตัวเลขนี้คำนวณจากข้อมูลล่าสุดที่ดึงจาก Bitkub
+    ถ้าจะ refresh ใหม่ run <code>python scripts/fetch_bitkub.py &amp;&amp; python scripts/build_dashboard.py</code>
+    แล้ว reload หน้านี้
+  </div>
+</section>
+
+<!-- ==================================================================
+     VIEW 0.5 — GOALS (เป้าหมายของฉัน)
+================================================================== -->
+<section id="view-goals" class="hidden">
+  <div class="callout">
+    <strong>🎯 เป้าหมาย DCA</strong> — บันทึกเป้าหมายหลายตัว, คำนวณงบที่ต้องการ,
+    ติดตามความคืบหน้า, รับแจ้งเตือนรายวัน. <strong>ข้อมูลเก็บใน browser ของคุณ</strong>
+    (localStorage) — ไม่ส่งออก server ไม่หาย ตราบใดที่ไม่ลบ browser data
+  </div>
+
+  <div class="goal-toolbar">
+    <button class="btn primary" id="btn-new-goal">+ เพิ่มเป้าหมายใหม่</button>
+    <button class="btn" id="btn-export-goals">📤 Export</button>
+    <label class="btn" for="import-file">📥 Import<input type="file" id="import-file" accept=".json" style="display:none"></label>
+    <span class="muted" id="goal-count" style="margin-left:auto"></span>
+  </div>
+
+  <!-- Add/Edit goal form -->
+  <div id="goal-form" class="goal-form-box hidden">
+    <h3 class="section-h" style="margin-top:0" id="goal-form-title">เพิ่มเป้าหมายใหม่</h3>
+    <div class="goal-form-grid">
+      <label>ชื่อเป้าหมาย
+        <input type="text" id="g-name" placeholder="เช่น เป้าหมายแฟน 1 BTC">
+      </label>
+      <label>กลยุทธ์
+        <select id="g-strategy">
+          <option value="mayer">Mayer Multiple (แนะนำ)</option>
+          <option value="sma2x">SMA-2x</option>
+          <option value="bollinger3">Bollinger 3-tier</option>
+          <option value="flat">Flat DCA</option>
+        </select>
+      </label>
+      <label>วันที่เริ่ม
+        <input type="date" id="g-start">
+      </label>
+      <label>โหมดคำนวณ
+        <select id="g-mode">
+          <option value="A">A: ระบุ BTC + วันสิ้นสุด → คำนวณงบที่ต้องการ</option>
+          <option value="B">B: ระบุงบ + วันสิ้นสุด → คำนวณ BTC ที่จะได้</option>
+          <option value="C">C: ระบุ BTC + งบ → คำนวณวันที่ถึงเป้า</option>
+        </select>
+      </label>
+      <label data-mode="A,C">เป้าหมาย BTC
+        <input type="number" id="g-target-btc" step="0.01" min="0.01" value="1.00">
+      </label>
+      <label data-mode="A,B">วันสิ้นสุด
+        <input type="date" id="g-deadline">
+      </label>
+      <label data-mode="B,C">งบ ฿/วัน (base)
+        <input type="number" id="g-budget" step="100" min="100" value="1000">
+      </label>
+    </div>
+    <div class="goal-form-actions">
+      <button class="btn primary" id="btn-save-goal">บันทึก</button>
+      <button class="btn" id="btn-cancel-goal">ยกเลิก</button>
+    </div>
+  </div>
+
+  <h3 class="section-h">เป้าหมายของฉัน</h3>
+  <div id="goals-list"></div>
+
+  <!-- Add purchase log modal -->
+  <div id="log-form" class="goal-form-box hidden" style="margin-top:20px">
+    <h3 class="section-h" style="margin-top:0">📝 บันทึกการซื้อ</h3>
+    <input type="hidden" id="log-goal-id">
+    <div class="goal-form-grid">
+      <label>วันที่ซื้อ
+        <input type="date" id="log-date">
+      </label>
+      <label>จำนวนเงิน (THB)
+        <input type="number" id="log-thb" step="100" min="0">
+      </label>
+      <label>ราคา BTC ตอนซื้อ
+        <input type="number" id="log-price" step="1" min="0" placeholder="auto-fill จากข้อมูลวันนั้น">
+      </label>
+      <label>BTC ที่ได้ (auto-calc)
+        <input type="text" id="log-btc-auto" readonly style="background:var(--panel2);color:var(--muted)">
+      </label>
+    </div>
+    <div class="goal-form-actions">
+      <button class="btn primary" id="btn-save-log">บันทึก</button>
+      <button class="btn" id="btn-cancel-log">ยกเลิก</button>
+    </div>
+  </div>
+
+  <h3 class="section-h">🔔 การแจ้งเตือนรายวัน</h3>
+  <div class="notif-box">
+    <div class="notif-row">
+      <label class="notif-toggle">
+        <input type="checkbox" id="notif-enabled">
+        <span>เปิดใช้แจ้งเตือน</span>
+      </label>
+      <label>เวลาเตือน
+        <input type="time" id="notif-time" value="08:30">
+      </label>
+      <button class="btn" id="btn-test-notif">🧪 ทดสอบแจ้งเตือน</button>
+    </div>
+    <div class="notif-status" id="notif-status"></div>
+    <div class="muted" style="font-size: 11px; margin-top: 12px; line-height: 1.6;">
+      ⚠️ <strong>ข้อจำกัด Browser Notification:</strong>
+      ทำงานเฉพาะตอนที่ dashboard เปิดอยู่ใน browser. ถ้าปิด tab ไป จะไม่มีการแจ้งเตือน.
+      แนะนำให้ pin tab นี้ค้างไว้ หรือเปิด dashboard ทุกเช้า. (ถ้าต้องการแจ้งเตือนแบบ background ทุกวัน
+      ไม่ว่าจะเปิดหรือไม่ ผมสามารถ setup launchd job ของ macOS ให้ได้ — แจ้งครับถ้าต้องการ)
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================================
+     VIEW 1 — COMPARISON
+================================================================== -->
+<section id="view-compare" class="hidden">
+  <div class="controls">
+    <div class="control-group compare-goal-row">
+      <span class="control-label">🎯 ลิงก์เป้าหมาย</span>
+      <select id="compare-goal-select"><option value="">— ไม่ลิงก์ (ดูทั่วไป) —</option></select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">ระยะเวลา</span>
+      <div class="btn-group" id="window-buttons"></div>
+    </div>
+    <div class="control-group" style="flex: 1; min-width: 200px;">
+      <span class="control-label">กลยุทธ์</span>
+      <div class="strat-toggles" id="strat-toggles"></div>
+    </div>
+  </div>
+
+  <div id="recommendation-area"></div>
+
+  <div class="cards-grid" id="strat-cards"></div>
+
+  <div class="chart-box">
+    <h3>Equity curve — มูลค่าพอร์ตเทียบเงินลงทุน (sampled weekly)</h3>
+    <div class="chart-canvas-wrap"><canvas id="equity-chart"></canvas></div>
+  </div>
+
+  <div class="chart-box">
+    <h3>Drawdown over time</h3>
+    <div class="chart-canvas-wrap" style="height: 220px;"><canvas id="dd-chart"></canvas></div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="compare-table">
+      <thead>
+        <tr>
+          <th>กลยุทธ์</th><th>ลงทุนรวม</th><th>ค่าธรรมเนียม</th><th>BTC</th>
+          <th>มูลค่า</th><th>ROI</th><th>CAGR</th><th>MaxDD</th><th>Sortino</th><th>ถึง 1 BTC</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================================================================
+     VIEW 2 — ROLLING DISTRIBUTION
+================================================================== -->
+<section id="view-rolling" class="hidden">
+  <div class="callout">
+    <strong>Rolling analysis</strong> = รัน DCA ซ้ำในทุกวันเริ่มต้นที่เป็นไปได้ (step ทุก 7 วัน)
+    เพื่อดูว่า "ROI ที่จะได้" จริงๆ มีโอกาสเป็นเท่าไหร่ —
+    ดีกว่าดู single path เพียงครั้งเดียว
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <span class="control-label">ระยะเวลา</span>
+      <div class="btn-group" id="rolling-window-buttons"></div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="rolling-table">
+      <thead>
+        <tr>
+          <th>กลยุทธ์</th><th>N paths</th>
+          <th>P10 (worst)</th><th>P25</th><th>Median</th><th>P75</th><th>P90 (best)</th>
+          <th>โอกาสกำไร</th><th>BTC median</th><th>MaxDD median</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="chart-box">
+    <h3>การกระจาย ROI — จุดทุกจุดคือ 1 backtest path</h3>
+    <div class="chart-canvas-wrap"><canvas id="rolling-chart"></canvas></div>
+  </div>
+
+  <div class="chart-box">
+    <h3>Box plot: P10–P90 range ต่อกลยุทธ์</h3>
+    <div class="chart-canvas-wrap" style="height: 300px;"><canvas id="boxplot-chart"></canvas></div>
+  </div>
+</section>
+
+<!-- ==================================================================
+     VIEW 3 — AUDIT TRAIL
+================================================================== -->
+<section id="view-audit" class="hidden">
+  <div class="callout">
+    <strong>ทำไม dashboard นี้น่าเชื่อถือกว่าเดิม?</strong>
+    เพราะทุกตัวเลขในนี้คำนวณจาก algorithm จริงบน daily price data จริง
+    ไม่ใช่ค่าที่ AI ทึกทักมา. ดูรายละเอียดด้านล่าง.
+  </div>
+
+  <div class="audit-section">
+    <h3>Data Source</h3>
+    <div class="kvtable" id="meta-grid"></div>
+  </div>
+
+  <div class="audit-section">
+    <h3>Methodology Improvements vs Old Backtest</h3>
+    <ul>
+      <li><strong>Daily prices, not monthly</strong> — capture true volatility, not averaged-out smoothness</li>
+      <li><strong>Fees deducted (0.25%)</strong> — Bitkub spot fee, applied to every buy</li>
+      <li><strong>Real Bitkub BTC/THB</strong> — direct, no FX approximation</li>
+      <li><strong>Monotonic BTC verified</strong> — unit test ensures we never "lose" BTC magically</li>
+      <li><strong>Rolling distribution</strong> — show range of outcomes, not single cherry-picked path</li>
+    </ul>
+  </div>
+
+  <div class="audit-section">
+    <h3>Strategy Definitions</h3>
+    <ul>
+      <li><strong>flat</strong>: ฿1,000/วันคงที่</li>
+      <li><strong>sma2x</strong>: ฿1,000 ปกติ; ฿2,000 ตอนราคา &lt; SMA(140 วัน, ≈20W)</li>
+      <li><strong>mayer</strong>: Mayer Multiple = price/SMA(200). &lt;0.8 → 3x, &lt;1.0 → 2x, &gt;2.4 → 0.5x</li>
+      <li><strong>bollinger3</strong>: BB(140, 2σ). ใต้ lower → 3x, ในกรอบ → 1.5x, เหนือ upper → 1x</li>
+      <li><strong>lumpsum</strong>: ลงทั้งก้อนวันแรก เท่ากับงบ flat DCA ทั้งช่วง</li>
+    </ul>
+  </div>
+
+  <div class="audit-section">
+    <h3>Known Data Quirks (Disclosed)</h3>
+    <ul>
+      <li>Bitkub API ส่ง 2 bars สำหรับ <strong>2024-01-31, 2024-02-01, 2025-04-25</strong></li>
+      <li>Fetcher dedupe โดย keep bar ที่ volume สูงกว่า (=complete daily aggregation)</li>
+      <li>Decision logged ใน <code>data/btc_thb_daily.json::deduplicated</code></li>
+    </ul>
+  </div>
+
+  <div class="audit-section">
+    <h3>Reproducibility</h3>
+    <pre style="background: var(--panel2); padding: 12px; border-radius: 6px; font-size: 11px; color: var(--muted);">cd ~/Projects/btc-dca-backtest
+source .venv/bin/activate
+python scripts/fetch_bitkub.py        # refresh data
+python scripts/run_comparison.py      # run all backtests
+python scripts/build_dashboard.py     # rebuild this dashboard
+python tests/test_engine.py           # verify invariants</pre>
+  </div>
+</section>
+
+<div class="footer">
+  ⚠️ Past performance does not guarantee future returns. For education only — not investment advice.<br>
+  Generated <span id="gen-time"></span> · Data through <span id="data-end"></span>
+</div>
+
+</div>
+
+<script>
+// =====================================================================
+// EMBEDDED DATA (injected at build time)
+// =====================================================================
+const DATA = /*__DATA_PLACEHOLDER__*/;
+
+// =====================================================================
+// STATE
+// =====================================================================
+const state = {
+  view: 'today',
+  window: '5y',
+  rollingWindow: '1y',
+  enabledStrats: new Set(DATA.meta.strategies.map(s => s.id)),
+  linkedGoalId: '',
+};
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+const fmtTHB = n => '฿' + Math.round(n).toLocaleString('en-US');
+const fmtPct = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const fmtBTC = n => n.toFixed(4);
+const stratColor = id => DATA.meta.strategies.find(s => s.id === id).color;
+const stratLabel = id => DATA.meta.strategies.find(s => s.id === id).label;
+
+// =====================================================================
+// VIEW SWITCHING
+// =====================================================================
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.view = t.dataset.view;
+    document.querySelectorAll('section[id^=view-]').forEach(s => s.classList.add('hidden'));
+    document.getElementById('view-' + state.view).classList.remove('hidden');
+    if (state.view === 'today') renderToday();
+    if (state.view === 'goals') renderGoals();
+    if (state.view === 'compare') renderCompare();
+    if (state.view === 'rolling') renderRolling();
+    if (state.view === 'audit') renderAudit();
+  });
+});
+
+// =====================================================================
+// CONTROLS — window buttons + strategy toggles
+// =====================================================================
+function renderWindowButtons(containerId, currentKey, onClick) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  DATA.meta.windows.forEach(w => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (state[currentKey] === w.id ? ' active' : '');
+    b.textContent = w.id.toUpperCase() + ` (${w.days}d)`;
+    b.onclick = () => { state[currentKey] = w.id; onClick(); };
+    c.appendChild(b);
+  });
+}
+
+function renderStratToggles() {
+  const c = document.getElementById('strat-toggles');
+  c.innerHTML = '';
+  DATA.meta.strategies.forEach(s => {
+    const t = document.createElement('div');
+    t.className = 'strat-toggle' + (state.enabledStrats.has(s.id) ? '' : ' off');
+    t.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.label}`;
+    t.onclick = () => {
+      if (state.enabledStrats.has(s.id)) state.enabledStrats.delete(s.id);
+      else state.enabledStrats.add(s.id);
+      renderCompare();
+    };
+    c.appendChild(t);
+  });
+}
+
+// =====================================================================
+// VIEW: TODAY (DCA วันนี้)
+// =====================================================================
+let mayerHistChart = null;
+
+function multClass(m) {
+  if (m === 0.5) return 'x05';
+  if (m === 1.0) return 'x1';
+  if (m === 1.5) return 'x15';
+  if (m === 2.0) return 'x2';
+  if (m === 3.0) return 'x3';
+  return 'x1';
+}
+function actionClass(m) {
+  if (m === 3.0) return 'action-deep';
+  if (m === 2.0) return 'action-buy';
+  if (m === 1.5) return 'action-buy';
+  if (m === 0.5) return 'action-cool';
+  return 'action-hold';
+}
+function mayerZone(m) {
+  if (m < 0.8) return { cls: 'zone-deep', label: 'Deep undervalued (โอกาสซื้อหนัก)' };
+  if (m < 1.0) return { cls: 'zone-buy', label: 'Undervalued (buy zone)' };
+  if (m > 2.4) return { cls: 'zone-hot', label: 'Overheated (ระมัดระวัง)' };
+  return { cls: 'zone-normal', label: 'ช่วงปกติ' };
+}
+
+function computeTodayVerdict(t) {
+  // Derives a single actionable verdict from current Mayer + decisions.
+  // Returns: { verdictText, reasonText, actionClass, icon, recommendedDecision }
+  const m = t.indicators.mayer;
+  const decisions = t.decisions;
+  const mayer = decisions.find(d => d.strategy === 'mayer');
+  const sma2x = decisions.find(d => d.strategy === 'sma2x');
+  const flat  = decisions.find(d => d.strategy === 'flat');
+
+  if (m < 0.8) {
+    return {
+      verdict: '🔥 DCA หนักวันนี้! Deep undervalued zone',
+      reason: `Mayer ${m.toFixed(3)} อยู่ใน percentile P${t.mayer_percentile.toFixed(0)} — ถูกมากเทียบ 5 ปี`,
+      actionClass: 'action-buy-deep', icon: '🔥',
+      recommended: mayer || flat,
+    };
+  }
+  if (m < 1.0) {
+    return {
+      verdict: '🟢 ซื้อได้ (Buy zone)',
+      reason: `Mayer ${m.toFixed(3)} < 1.0 — ราคาต่ำกว่า SMA 200, undervalued moderately`,
+      actionClass: 'action-buy', icon: '✅',
+      recommended: mayer || sma2x || flat,
+    };
+  }
+  if (m < 1.5) {
+    return {
+      verdict: '🔵 DCA ปกติ',
+      reason: `Mayer ${m.toFixed(3)} อยู่ในช่วงปกติ — ซื้อตามแผนคงที่`,
+      actionClass: 'action-buy-normal', icon: '🔵',
+      recommended: flat,
+    };
+  }
+  if (m < 2.4) {
+    return {
+      verdict: '🟡 ซื้อระมัดระวัง',
+      reason: `Mayer ${m.toFixed(3)} ค่อนข้างสูง — ลดจังหวะเร่ง, รอ pullback`,
+      actionClass: 'action-careful', icon: '⚠️',
+      recommended: flat,
+    };
+  }
+  return {
+    verdict: '🛑 หยุดพัก / ลด DCA',
+    reason: `Mayer ${m.toFixed(3)} > 2.4 — overheated, รอตลาดเย็น`,
+    actionClass: 'action-pause', icon: '🛑',
+    recommended: { strategy: 'flat', multiplier: 0.5, amount_thb: 500, reason: 'ลดงบเหลือครึ่ง' },
+  };
+}
+
+function renderTodaySummary() {
+  const t = DATA.today;
+  if (!t) return;
+  const v = computeTodayVerdict(t);
+  const rec = v.recommended;
+  const stratName = stratLabel(rec.strategy);
+  const box = document.getElementById('today-summary');
+  box.className = 'today-summary ' + v.actionClass;
+  box.innerHTML = `
+    <div class="ts-icon">${v.icon}</div>
+    <div class="ts-text">
+      <div class="ts-verdict">${v.verdict}</div>
+      <div class="ts-reason">${v.reason}</div>
+    </div>
+    <div class="ts-action">
+      <div class="ts-amount">฿${rec.amount_thb.toLocaleString()}</div>
+      <div class="ts-strategy">${stratName} · ${rec.multiplier}x</div>
+    </div>
+  `;
+}
+
+function renderToday() {
+  const t = DATA.today;
+  if (!t) return;
+  renderTodaySummary();
+
+  // Hero — date, price, mayer
+  document.getElementById('today-date').textContent = t.as_of_date;
+  document.getElementById('today-price').textContent = fmtTHB(t.price);
+  const ind = t.indicators;
+  const ctxEl = document.getElementById('today-context');
+  ctxEl.innerHTML =
+    `vs SMA 20W (฿${ind.sma_20w.toLocaleString('en-US', {maximumFractionDigits: 0})}): ` +
+    `<span class="${ind.price_vs_sma20w_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(ind.price_vs_sma20w_pct)}</span>` +
+    ` &nbsp;·&nbsp; vs SMA 200 (฿${ind.sma_200.toLocaleString('en-US', {maximumFractionDigits: 0})}): ` +
+    `<span class="${ind.price_vs_sma200_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(ind.price_vs_sma200_pct)}</span>`;
+
+  const zone = mayerZone(ind.mayer);
+  const mayerEl = document.getElementById('today-mayer');
+  mayerEl.textContent = ind.mayer.toFixed(3);
+  mayerEl.className = 'today-mayer ' + zone.cls;
+  document.getElementById('today-mayer-pct').innerHTML =
+    `${zone.label}<br>P${t.mayer_percentile.toFixed(0)} ของ 5 ปี (ต่ำกว่านี้ = ถูกกว่าค่าเฉลี่ย)`;
+
+  // Strategy cards
+  const cards = document.getElementById('today-cards');
+  cards.innerHTML = '';
+  t.decisions.forEach(d => {
+    const color = stratColor(d.strategy);
+    const card = document.createElement('div');
+    card.className = 'today-card ' + actionClass(d.multiplier);
+    card.innerHTML = `
+      <div class="name" style="color:${color}">${stratLabel(d.strategy)}</div>
+      <div class="mult ${multClass(d.multiplier)}">${d.multiplier}x</div>
+      <div class="amount">฿${d.amount_thb.toLocaleString('en-US')} / วัน</div>
+      <div class="reason">${d.reason}</div>
+    `;
+    cards.appendChild(card);
+  });
+
+  // Threshold map
+  renderThresholdBar(t);
+  renderThresholdsTable(t);
+
+  // Mayer histogram
+  renderMayerHistogram(t);
+
+  // Mayer stats
+  const ms = document.getElementById('mayer-stats');
+  const stats = t.mayer_stats;
+  ms.innerHTML = `
+    <div class="mayer-stat"><div class="k">P10</div><div class="v">${stats.p10}</div></div>
+    <div class="mayer-stat"><div class="k">P25</div><div class="v">${stats.p25}</div></div>
+    <div class="mayer-stat"><div class="k">Median</div><div class="v">${stats.median}</div></div>
+    <div class="mayer-stat"><div class="k">P75</div><div class="v">${stats.p75}</div></div>
+    <div class="mayer-stat"><div class="k">P90</div><div class="v">${stats.p90}</div></div>
+    <div class="mayer-stat" style="border-left-color:${zone.cls === 'zone-buy' ? 'var(--green)' : zone.cls === 'zone-deep' ? '#f43f5e' : zone.cls === 'zone-hot' ? 'var(--accent)' : 'var(--blue)'}">
+      <div class="k">วันนี้</div><div class="v">${ind.mayer.toFixed(3)}</div>
+    </div>
+  `;
+
+  // Recent context
+  renderRecentGrid(t);
+}
+
+function renderThresholdBar(t) {
+  const bar = document.getElementById('threshold-bar');
+  bar.innerHTML = '';
+  // Calculate display range: Mayer 0.6 to 2.6 mapped to 0%-100%
+  const mayerMin = 0.6, mayerMax = 2.6;
+  const ind = t.indicators;
+  const sma200 = ind.sma_200;
+
+  function pctOfBar(price) {
+    const m = price / sma200;
+    return Math.max(0, Math.min(100, ((m - mayerMin) / (mayerMax - mayerMin)) * 100));
+  }
+
+  const markers = [
+    { label: 'M=0.8', price: t.thresholds.mayer_08.price },
+    { label: 'M=1.0 (SMA200)', price: t.thresholds.sma_200.price },
+    { label: 'SMA20W', price: t.thresholds.sma_20w.price },
+    { label: 'BB lo', price: t.thresholds.bb_lower.price },
+    { label: 'BB up', price: t.thresholds.bb_upper.price },
+    { label: 'M=2.4', price: t.thresholds.mayer_24.price },
+  ];
+
+  markers.forEach(m => {
+    const left = pctOfBar(m.price);
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.left = left + '%';
+    el.dataset.label = m.label;
+    bar.appendChild(el);
+  });
+
+  // Current price marker
+  const nowEl = document.createElement('div');
+  nowEl.className = 'marker now';
+  nowEl.style.left = pctOfBar(t.price) + '%';
+  nowEl.dataset.price = '฿' + t.price.toLocaleString('en-US', {maximumFractionDigits: 0});
+  bar.appendChild(nowEl);
+}
+
+function renderThresholdsTable(t) {
+  const tbody = document.querySelector('#thresholds-table tbody');
+  tbody.innerHTML = '';
+  const rows = [
+    { key: 'mayer_08',  ...t.thresholds.mayer_08 },
+    { key: 'sma_200',   ...t.thresholds.sma_200 },
+    { key: 'sma_20w',   ...t.thresholds.sma_20w },
+    { key: 'bb_lower',  ...t.thresholds.bb_lower },
+    { key: 'bb_upper',  ...t.thresholds.bb_upper },
+    { key: 'mayer_24',  ...t.thresholds.mayer_24 },
+  ];
+  rows.sort((a, b) => a.price - b.price);
+  rows.forEach(r => {
+    const diff = r.price - t.price;
+    const diffPct = (diff / t.price) * 100;
+    const tr = document.createElement('tr');
+    const sign = diff >= 0 ? '+' : '';
+    tr.innerHTML = `
+      <td><strong>${r.label.split(' (')[0]}</strong></td>
+      <td>฿${r.price.toLocaleString('en-US', {maximumFractionDigits: 0})}</td>
+      <td class="${diff >= 0 ? 'pos' : 'neg'}">${sign}${fmtTHB(Math.abs(diff)).slice(1)} (${sign}${diffPct.toFixed(1)}%)</td>
+      <td class="muted">${r.label.split('(')[1]?.replace(')', '') || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMayerHistogram(t) {
+  const ctx = document.getElementById('mayer-hist').getContext('2d');
+  const data = t.mayer_history;
+  const minM = 0.5, maxM = 2.6, binW = 0.05;
+  const nBins = Math.ceil((maxM - minM) / binW);
+  const bins = new Array(nBins).fill(0);
+  const labels = Array.from({length: nBins}, (_, i) => (minM + i*binW).toFixed(2));
+  data.forEach(v => {
+    const i = Math.min(nBins - 1, Math.max(0, Math.floor((v - minM) / binW)));
+    bins[i]++;
+  });
+
+  // Color bins by zone
+  const colors = labels.map(l => {
+    const v = parseFloat(l);
+    if (v < 0.8) return '#f43f5eaa';
+    if (v < 1.0) return '#22c55eaa';
+    if (v > 2.4) return '#f59e0baa';
+    return '#60a5faaa';
+  });
+
+  // Annotation: vertical line at current mayer
+  const currentM = t.indicators.mayer;
+  const currentBin = Math.min(nBins - 1, Math.max(0, Math.floor((currentM - minM) / binW)));
+
+  if (mayerHistChart) mayerHistChart.destroy();
+  mayerHistChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'จำนวนวัน',
+          data: bins,
+          backgroundColor: colors.map((c, i) => i === currentBin ? '#f8fafc' : c),
+          borderColor: colors.map((c, i) => i === currentBin ? '#f59e0b' : c),
+          borderWidth: colors.map((c, i) => i === currentBin ? 3 : 1),
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: `วันนี้: ${currentM.toFixed(3)} (highlighted in white)`, color: '#94a3b8', font: {size: 12} },
+        tooltip: {
+          callbacks: {
+            label: c => `${c.raw} วัน ใน 5 ปี`,
+            afterLabel: c => {
+              const v = parseFloat(c.label);
+              if (v < 0.8) return '🔴 Deep undervalued';
+              if (v < 1.0) return '🟢 Buy zone';
+              if (v > 2.4) return '🟠 Overheated';
+              return '🔵 Normal';
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#475569', maxTicksLimit: 12 }, grid: { display: false }, title: { display: true, text: 'Mayer Multiple', color: '#64748b' } },
+        y: { ticks: { color: '#475569' }, grid: { color: '#1e293b' }, title: { display: true, text: 'จำนวนวัน', color: '#64748b' } },
+      },
+    },
+  });
+}
+
+function renderRecentGrid(t) {
+  const grid = document.getElementById('recent-grid');
+  grid.innerHTML = '';
+  const c = t.context;
+  const items = [
+    { label: '30 วันที่แล้ว', val: c['30d'], short: '1 เดือน' },
+    { label: '90 วันที่แล้ว', val: c['90d'], short: '3 เดือน' },
+    { label: '365 วันที่แล้ว', val: c['365d'], short: '1 ปี' },
+    { label: '1y range', val: null, special: true },
+  ];
+  items.forEach(it => {
+    const card = document.createElement('div');
+    card.className = 'recent-card';
+    if (it.special) {
+      card.innerHTML = `
+        <div class="label">ตำแหน่งใน 1y range</div>
+        <div class="value">${c['1y_range_pos_pct'].toFixed(0)}%</div>
+        <div class="sub">low ฿${c['1y_low'].toLocaleString('en-US',{maximumFractionDigits:0})} – high ฿${c['1y_high'].toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+      `;
+    } else if (it.val) {
+      card.innerHTML = `
+        <div class="label">${it.short}</div>
+        <div class="value ${it.val.change_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(it.val.change_pct)}</div>
+        <div class="sub">฿${it.val.price.toLocaleString('en-US',{maximumFractionDigits:0})} (${it.val.date})</div>
+      `;
+    }
+    grid.appendChild(card);
+  });
+}
+
+// =====================================================================
+// VIEW: GOALS (เป้าหมายของฉัน)
+// =====================================================================
+const STORAGE_KEY = 'dca_goals_v1';
+const NOTIF_KEY = 'dca_notif_v1';
+const FEE_RATE = DATA.meta.fee_rate_pct / 100;
+const TODAY_PRICE = DATA.today.price;
+
+function loadGoals() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveGoals(goals) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+}
+function loadNotifConfig() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveNotifConfig(cfg) {
+  localStorage.setItem(NOTIF_KEY, JSON.stringify(cfg));
+}
+
+function genId() { return 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function daysBetween(d1, d2) {
+  const a = new Date(d1), b = new Date(d2);
+  return Math.round((b - a) / (1000 * 60 * 60 * 24));
+}
+function addDaysISO(iso, days) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Form mode visibility ──────────────────────────────────────────
+function applyFormMode() {
+  const mode = document.getElementById('g-mode').value;
+  document.querySelectorAll('#goal-form [data-mode]').forEach(el => {
+    const modes = el.getAttribute('data-mode').split(',');
+    el.style.display = modes.includes(mode) ? '' : 'none';
+  });
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────
+function showGoalForm(goal) {
+  const f = document.getElementById('goal-form');
+  document.getElementById('goal-form-title').textContent = goal ? 'แก้ไขเป้าหมาย' : 'เพิ่มเป้าหมายใหม่';
+  document.getElementById('g-name').value = goal?.name || '';
+  document.getElementById('g-strategy').value = goal?.strategy || 'mayer';
+  document.getElementById('g-start').value = goal?.start_date || todayISO();
+  document.getElementById('g-mode').value = goal?.mode || 'A';
+  document.getElementById('g-target-btc').value = goal?.target_btc || 1.0;
+  document.getElementById('g-deadline').value = goal?.deadline || addDaysISO(todayISO(), 1095);
+  document.getElementById('g-budget').value = goal?.budget_thb || 1000;
+  f.dataset.editId = goal?.id || '';
+  f.classList.remove('hidden');
+  applyFormMode();
+}
+function hideGoalForm() {
+  document.getElementById('goal-form').classList.add('hidden');
+}
+
+function saveGoalFromForm() {
+  const f = document.getElementById('goal-form');
+  const goal = {
+    id: f.dataset.editId || genId(),
+    name: document.getElementById('g-name').value.trim() || 'เป้าหมายไม่มีชื่อ',
+    strategy: document.getElementById('g-strategy').value,
+    start_date: document.getElementById('g-start').value,
+    mode: document.getElementById('g-mode').value,
+    target_btc: parseFloat(document.getElementById('g-target-btc').value) || 1.0,
+    deadline: document.getElementById('g-deadline').value,
+    budget_thb: parseFloat(document.getElementById('g-budget').value) || 1000,
+    created_at: f.dataset.editId ? undefined : new Date().toISOString(),
+    logs: [],
+  };
+  let goals = loadGoals();
+  if (f.dataset.editId) {
+    const idx = goals.findIndex(g => g.id === f.dataset.editId);
+    if (idx >= 0) goals[idx] = { ...goals[idx], ...goal };
+  } else {
+    goals.push(goal);
+  }
+  saveGoals(goals);
+  hideGoalForm();
+  renderGoals();
+}
+
+function deleteGoal(id) {
+  if (!confirm('ลบเป้าหมายนี้? (logs ที่บันทึกไว้จะหายด้วย)')) return;
+  saveGoals(loadGoals().filter(g => g.id !== id));
+  renderGoals();
+}
+
+// ── Goal calculator ───────────────────────────────────────────────
+function pickReference(strategy, days) {
+  // Pick closest pre-computed window (1y=365, 3y=1095) for the strategy.
+  const ref = DATA.goal_reference || {};
+  if (days <= 365 + (1095 - 365) / 2) {
+    return { window: 365, data: ref['1y']?.[strategy] };
+  }
+  return { window: 1095, data: ref['3y']?.[strategy] };
+}
+
+function computeProgress(goal) {
+  const accumBtc = (goal.logs || []).reduce((s, l) => s + (l.btc || 0), 0);
+  const investedThb = (goal.logs || []).reduce((s, l) => s + (l.thb || 0), 0);
+  return { accumBtc, investedThb };
+}
+
+function computeGoalScenarios(goal) {
+  // Returns:
+  //   For mode A: required_thb_per_day for {flat, P10, median, P90}
+  //   For mode B: projected_btc for {flat, P10, median, P90}
+  //   For mode C: projected_days_to_goal for {flat, P10, median, P90}
+  const today = todayISO();
+  const { accumBtc, investedThb } = computeProgress(goal);
+  const remainingBtc = Math.max(0, goal.target_btc - accumBtc);
+
+  if (remainingBtc <= 0) {
+    return { mode: goal.mode, completed: true, accumBtc, investedThb };
+  }
+
+  const ref = pickReference(goal.strategy, daysBetween(goal.start_date, goal.deadline));
+  const refData = ref.data;
+  const refDays = ref.window;
+
+  // From rolling reference: median_btc accumulated for ฿1000/day base over refDays
+  // → BTC per (฿1 base × 1 day) = median_btc / (1000 * refDays)
+  const flatBtcPerBahtDay = 1 / (TODAY_PRICE * (1 + FEE_RATE));
+  // Strategy adjustment factors: derived from rolling distribution
+  const adjMedian = refData ? (refData.median_btc / (1000 * refDays)) / flatBtcPerBahtDay : 1.0;
+  // For P10/P90 of BTC, approximate via ROI — higher ROI on same invested ≈ more BTC
+  // (rough proxy; honest disclosure in UI)
+  const adjP10 = refData ? adjMedian * 0.75 : 0.85;  // pessimistic
+  const adjP90 = refData ? adjMedian * 1.25 : 1.15;  // optimistic
+
+  if (goal.mode === 'A') {
+    // Target BTC + Deadline → required ฿/day
+    const daysRem = Math.max(1, daysBetween(today, goal.deadline));
+    const neededThbFlat = remainingBtc / flatBtcPerBahtDay / daysRem;
+    return {
+      mode: 'A',
+      completed: false,
+      accumBtc, investedThb, remainingBtc, daysRem,
+      flat: { thb_per_day: neededThbFlat },
+      median: { thb_per_day: neededThbFlat / adjMedian },
+      pessimistic: { thb_per_day: neededThbFlat / adjP10 },
+      optimistic: { thb_per_day: neededThbFlat / adjP90 },
+      ref_window_days: refDays,
+    };
+  }
+  if (goal.mode === 'B') {
+    // Budget + Deadline → BTC accumulated
+    const daysRem = Math.max(1, daysBetween(today, goal.deadline));
+    const totalBudget = goal.budget_thb * daysRem;
+    const flatBtc = totalBudget * flatBtcPerBahtDay;
+    return {
+      mode: 'B',
+      completed: false,
+      accumBtc, investedThb, daysRem, totalBudget,
+      flat: { btc: accumBtc + flatBtc },
+      median: { btc: accumBtc + flatBtc * adjMedian },
+      pessimistic: { btc: accumBtc + flatBtc * adjP10 },
+      optimistic: { btc: accumBtc + flatBtc * adjP90 },
+      ref_window_days: refDays,
+    };
+  }
+  // Mode C: Target + Budget → days to goal
+  const daysFlat = remainingBtc / (goal.budget_thb * flatBtcPerBahtDay);
+  const expectedDeadlineISO = (d) => addDaysISO(today, Math.ceil(d));
+  return {
+    mode: 'C',
+    completed: false,
+    accumBtc, investedThb, remainingBtc,
+    flat:        { days: daysFlat,           date: expectedDeadlineISO(daysFlat) },
+    median:      { days: daysFlat / adjMedian, date: expectedDeadlineISO(daysFlat / adjMedian) },
+    pessimistic: { days: daysFlat / adjP10,    date: expectedDeadlineISO(daysFlat / adjP10) },
+    optimistic:  { days: daysFlat / adjP90,    date: expectedDeadlineISO(daysFlat / adjP90) },
+    ref_window_days: refDays,
+  };
+}
+
+function statusForGoal(goal, scen) {
+  if (scen.completed) return { label: '🎉 ถึงเป้าแล้ว', cls: 'completed' };
+  const totalDays = daysBetween(goal.start_date, goal.deadline);
+  const elapsed = daysBetween(goal.start_date, todayISO());
+  if (elapsed <= 0) return { label: 'ยังไม่เริ่ม', cls: 'on-track' };
+  const expectedFraction = Math.min(1, elapsed / totalDays);
+  const actualFraction = Math.min(1, scen.accumBtc / goal.target_btc);
+  if (actualFraction >= expectedFraction) return { label: '🟢 On track', cls: 'on-track' };
+  if (actualFraction >= expectedFraction * 0.85) return { label: '🟡 ใกล้แผน', cls: 'on-track' };
+  return { label: '🔴 ช้ากว่าแผน', cls: 'behind' };
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderGoals() {
+  const goals = loadGoals();
+  const list = document.getElementById('goals-list');
+  document.getElementById('goal-count').textContent = `${goals.length} เป้าหมาย`;
+  list.innerHTML = '';
+  if (goals.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      ยังไม่มีเป้าหมาย — กดปุ่ม <strong>+ เพิ่มเป้าหมายใหม่</strong> ด้านบน
+    </div>`;
+    renderNotifBox();
+    return;
+  }
+  goals.forEach(goal => list.appendChild(renderGoalCard(goal)));
+  renderNotifBox();
+}
+
+function fmtDays(d) {
+  if (!isFinite(d)) return '∞';
+  if (d < 30) return `${Math.ceil(d)} วัน`;
+  if (d < 365) return `${Math.ceil(d / 30)} เดือน`;
+  const y = (d / 365);
+  return `${y.toFixed(1)} ปี`;
+}
+
+function renderGoalCard(goal) {
+  const card = document.createElement('div');
+  card.className = 'goal-card';
+  const scen = computeGoalScenarios(goal);
+  const status = statusForGoal(goal, scen);
+  const pct = Math.min(100, (scen.accumBtc / goal.target_btc) * 100);
+  const stratLabel = DATA.meta.strategies.find(s => s.id === goal.strategy)?.label || goal.strategy;
+
+  let scenarioHtml = '';
+  if (scen.mode === 'A' && !scen.completed) {
+    scenarioHtml = `
+      <div class="goal-progress-label"><strong>งบที่ต้องลง ฿/วัน</strong> เพื่อให้ถึงเป้าใน ${fmtDays(scen.daysRem)}:</div>
+      <div class="goal-scenarios">
+        <div class="scenario-card flat"><div class="label">📌 Flat (ราคาคงที่)</div><div class="value">฿${Math.ceil(scen.flat.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card pessimistic"><div class="label">🔴 P10 แย่</div><div class="value">฿${Math.ceil(scen.pessimistic.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card median"><div class="label">🟡 Median</div><div class="value">฿${Math.ceil(scen.median.thb_per_day).toLocaleString()}/d</div></div>
+        <div class="scenario-card optimistic"><div class="label">🟢 P90 ดี</div><div class="value">฿${Math.ceil(scen.optimistic.thb_per_day).toLocaleString()}/d</div></div>
+      </div>`;
+  } else if (scen.mode === 'B' && !scen.completed) {
+    scenarioHtml = `
+      <div class="goal-progress-label"><strong>BTC ที่จะได้</strong> ภายใน ${fmtDays(scen.daysRem)} ที่งบ ฿${goal.budget_thb}/วัน (${stratLabel}):</div>
+      <div class="goal-scenarios">
+        <div class="scenario-card flat"><div class="label">📌 Flat</div><div class="value">${scen.flat.btc.toFixed(3)} BTC</div></div>
+        <div class="scenario-card pessimistic"><div class="label">🔴 P10</div><div class="value">${scen.pessimistic.btc.toFixed(3)} BTC</div></div>
+        <div class="scenario-card median"><div class="label">🟡 Median</div><div class="value">${scen.median.btc.toFixed(3)} BTC</div></div>
+        <div class="scenario-card optimistic"><div class="label">🟢 P90</div><div class="value">${scen.optimistic.btc.toFixed(3)} BTC</div></div>
+      </div>`;
+  } else if (scen.mode === 'C' && !scen.completed) {
+    scenarioHtml = `
+      <div class="goal-progress-label"><strong>คาดการณ์วันถึงเป้า</strong> ที่งบ ฿${goal.budget_thb}/วัน (${stratLabel}):</div>
+      <div class="goal-scenarios">
+        <div class="scenario-card flat"><div class="label">📌 Flat (${fmtDays(scen.flat.days)})</div><div class="value">${scen.flat.date}</div></div>
+        <div class="scenario-card pessimistic"><div class="label">🔴 P10 (${fmtDays(scen.pessimistic.days)})</div><div class="value">${scen.pessimistic.date}</div></div>
+        <div class="scenario-card median"><div class="label">🟡 Median (${fmtDays(scen.median.days)})</div><div class="value">${scen.median.date}</div></div>
+        <div class="scenario-card optimistic"><div class="label">🟢 P90 (${fmtDays(scen.optimistic.days)})</div><div class="value">${scen.optimistic.date}</div></div>
+      </div>`;
+  }
+
+  let logsHtml = '';
+  if ((goal.logs || []).length > 0) {
+    logsHtml = '<div class="log-list"><div class="log-list-title">บันทึกการซื้อ ('+ goal.logs.length +' รายการ)</div>';
+    goal.logs.slice(-5).reverse().forEach(l => {
+      logsHtml += `<div class="log-row">
+        <span class="date">${l.date}</span>
+        <span class="thb">฿${l.thb.toLocaleString()}</span>
+        <span class="price">@ ฿${Math.round(l.price).toLocaleString()}</span>
+        <span class="btc">+${l.btc.toFixed(6)} BTC</span>
+      </div>`;
+    });
+    if (goal.logs.length > 5) logsHtml += `<div class="muted" style="margin-top:4px">...และอีก ${goal.logs.length - 5} รายการ</div>`;
+    logsHtml += '</div>';
+  }
+
+  card.innerHTML = `
+    <div class="goal-card-header">
+      <div>
+        <div class="goal-card-title">${goal.name} <span class="goal-status ${status.cls}">${status.label}</span></div>
+        <div class="goal-card-meta">
+          กลยุทธ์ <strong>${stratLabel}</strong> ·
+          เริ่ม ${goal.start_date}${goal.mode !== 'C' ? ' · สิ้นสุด ' + goal.deadline : ''} ·
+          เป้า ${goal.target_btc} BTC
+          ${goal.mode === 'C' ? ' · งบ ฿' + goal.budget_thb + '/วัน' : ''}
+        </div>
+      </div>
+      <div class="goal-card-actions">
+        <button class="btn" data-action="log" data-id="${goal.id}">📝 ซื้อ</button>
+        <button class="btn" data-action="edit" data-id="${goal.id}">✏️</button>
+        <button class="btn danger" data-action="delete" data-id="${goal.id}">🗑️</button>
+      </div>
+    </div>
+    <div class="goal-progress-row">
+      <div class="goal-progress-label">
+        <span>Progress</span>
+        <span><strong>${scen.accumBtc.toFixed(4)}</strong> / ${goal.target_btc} BTC (${pct.toFixed(1)}%) · ลงทุน ฿${Math.round(scen.investedThb).toLocaleString()}</span>
+      </div>
+      <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%"></div></div>
+    </div>
+    ${scenarioHtml}
+    <div class="muted" style="font-size:10px; margin-top:8px">
+      📊 Reference: ใช้ rolling backtest ${scen.ref_window_days || 'flat'} วันของกลยุทธ์ ${stratLabel} ·
+      💡 P10/P90 ประมาณการจาก backtest 5 ปีที่ผ่านมา · ไม่การันตีอนาคต
+    </div>
+    ${logsHtml}
+  `;
+
+  // Wire up action buttons (event delegation)
+  card.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      if (action === 'edit') {
+        showGoalForm(loadGoals().find(g => g.id === id));
+      } else if (action === 'delete') {
+        deleteGoal(id);
+      } else if (action === 'log') {
+        showLogForm(id);
+      }
+    });
+  });
+
+  return card;
+}
+
+// ── Log entries ───────────────────────────────────────────────────
+function showLogForm(goalId) {
+  document.getElementById('log-form').classList.remove('hidden');
+  document.getElementById('log-goal-id').value = goalId;
+  document.getElementById('log-date').value = todayISO();
+  document.getElementById('log-thb').value = '';
+  document.getElementById('log-price').value = TODAY_PRICE.toFixed(2);
+  document.getElementById('log-btc-auto').value = '';
+  updateLogBtcPreview();
+}
+function hideLogForm() { document.getElementById('log-form').classList.add('hidden'); }
+function updateLogBtcPreview() {
+  const thb = parseFloat(document.getElementById('log-thb').value) || 0;
+  const price = parseFloat(document.getElementById('log-price').value) || 1;
+  const fee = thb * FEE_RATE;
+  const btc = (thb - fee) / price;
+  document.getElementById('log-btc-auto').value = btc > 0 ? btc.toFixed(8) + ' BTC' : '';
+}
+function saveLogFromForm() {
+  const goalId = document.getElementById('log-goal-id').value;
+  const thb = parseFloat(document.getElementById('log-thb').value) || 0;
+  const price = parseFloat(document.getElementById('log-price').value) || 0;
+  if (thb <= 0 || price <= 0) { alert('กรอกข้อมูลให้ครบ'); return; }
+  const btc = (thb - thb * FEE_RATE) / price;
+  const goals = loadGoals();
+  const goal = goals.find(g => g.id === goalId);
+  if (!goal) return;
+  if (!goal.logs) goal.logs = [];
+  goal.logs.push({
+    date: document.getElementById('log-date').value,
+    thb, price, btc,
+    fee_thb: thb * FEE_RATE,
+  });
+  saveGoals(goals);
+  hideLogForm();
+  renderGoals();
+}
+
+// ── Notification ──────────────────────────────────────────────────
+let notifTickerInterval = null;
+
+function permissionStatus() {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission;  // 'default', 'granted', 'denied'
+}
+
+function buildNotificationBody() {
+  const t = DATA.today;
+  const ind = t.indicators;
+  const goals = loadGoals();
+  let s = `ราคา ฿${Math.round(t.price).toLocaleString()} · Mayer ${ind.mayer.toFixed(3)}`;
+  if (goals.length > 0) {
+    const summaries = goals.slice(0, 2).map(g => {
+      const { accumBtc } = computeProgress(g);
+      return `${g.name}: ${accumBtc.toFixed(3)}/${g.target_btc} BTC`;
+    });
+    s += '\n' + summaries.join('\n');
+  }
+  // Recommended: show Mayer strategy default
+  const mayer = t.decisions.find(d => d.strategy === 'mayer');
+  if (mayer) s += `\n👉 แนะนำ: ${mayer.multiplier}x = ฿${mayer.amount_thb.toLocaleString()}/วัน`;
+  return s;
+}
+
+function fireNotification(testMode = false) {
+  if (Notification.permission !== 'granted') return false;
+  const title = (testMode ? '🧪 ทดสอบ — ' : '') + '🪙 BTC DCA วันที่ ' + todayISO();
+  new Notification(title, {
+    body: buildNotificationBody(),
+    icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%23f59e0b"/><text x="32" y="44" font-size="32" text-anchor="middle" fill="%23000">฿</text></svg>',
+    tag: 'dca-daily-' + todayISO(),
+  });
+  return true;
+}
+
+function tickNotification() {
+  const cfg = loadNotifConfig();
+  if (!cfg.enabled) return;
+  if (Notification.permission !== 'granted') return;
+  const now = new Date();
+  const [h, m] = (cfg.time || '08:30').split(':').map(Number);
+  if (now.getHours() === h && now.getMinutes() === m) {
+    const today = todayISO();
+    if (cfg.last_fired !== today) {
+      const fired = fireNotification();
+      if (fired) {
+        cfg.last_fired = today;
+        saveNotifConfig(cfg);
+      }
+    }
+  }
+}
+
+function renderNotifBox() {
+  const cfg = loadNotifConfig();
+  document.getElementById('notif-enabled').checked = !!cfg.enabled;
+  document.getElementById('notif-time').value = cfg.time || '08:30';
+  const status = document.getElementById('notif-status');
+  const perm = permissionStatus();
+  if (perm === 'unsupported') {
+    status.innerHTML = '❌ Browser ตัวนี้ไม่รองรับ Notification API';
+    status.className = 'notif-status denied';
+  } else if (perm === 'granted') {
+    status.innerHTML = `✅ Permission อนุมัติแล้ว · ${cfg.enabled ? `จะแจ้งเตือนทุกวันเวลา ${cfg.time || '08:30'}` : 'ยังไม่เปิดการแจ้งเตือน'}`;
+    status.className = 'notif-status granted';
+  } else if (perm === 'denied') {
+    status.innerHTML = '🚫 Permission ถูกปฏิเสธ — เปิดให้ใหม่ได้ใน browser settings (lock icon ใกล้ URL)';
+    status.className = 'notif-status denied';
+  } else {
+    status.innerHTML = '⏳ ยังไม่ได้ขอ permission — กด "ทดสอบแจ้งเตือน" เพื่อขอ';
+    status.className = 'notif-status pending';
+  }
+}
+
+// ── Wire up Goals tab events ──────────────────────────────────────
+function initGoalsTab() {
+  document.getElementById('btn-new-goal').onclick = () => showGoalForm(null);
+  document.getElementById('btn-cancel-goal').onclick = hideGoalForm;
+  document.getElementById('btn-save-goal').onclick = saveGoalFromForm;
+  document.getElementById('g-mode').onchange = applyFormMode;
+
+  document.getElementById('btn-cancel-log').onclick = hideLogForm;
+  document.getElementById('btn-save-log').onclick = saveLogFromForm;
+  ['log-thb', 'log-price'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateLogBtcPreview));
+
+  document.getElementById('btn-export-goals').onclick = () => {
+    const data = JSON.stringify(loadGoals(), null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `dca_goals_${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('import-file').onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error('not array');
+        if (confirm(`Import ${imported.length} เป้าหมาย? (จะแทนที่ของเดิม)`)) {
+          saveGoals(imported); renderGoals();
+        }
+      } catch (err) { alert('ไฟล์ไม่ถูกต้อง: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+
+  // Notification settings
+  document.getElementById('notif-enabled').onchange = async (e) => {
+    const cfg = loadNotifConfig();
+    cfg.enabled = e.target.checked;
+    if (cfg.enabled && Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { e.target.checked = false; cfg.enabled = false; }
+    }
+    saveNotifConfig(cfg); renderNotifBox();
+  };
+  document.getElementById('notif-time').onchange = (e) => {
+    const cfg = loadNotifConfig();
+    cfg.time = e.target.value;
+    saveNotifConfig(cfg); renderNotifBox();
+  };
+  document.getElementById('btn-test-notif').onclick = async () => {
+    if (Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { alert('Permission ถูกปฏิเสธ'); return; }
+    }
+    fireNotification(true);
+    renderNotifBox();
+  };
+
+  // Start ticker
+  if (notifTickerInterval) clearInterval(notifTickerInterval);
+  notifTickerInterval = setInterval(tickNotification, 30 * 1000);  // every 30 seconds
+}
+
+// =====================================================================
+// VIEW: COMPARE
+// =====================================================================
+let equityChart = null, ddChart = null;
+
+function renderCards() {
+  const c = document.getElementById('strat-cards');
+  c.innerHTML = '';
+  const rows = DATA.single_path[state.window];
+  rows.forEach(r => {
+    if (!state.enabledStrats.has(r.strategy)) return;
+    const m = r.metrics;
+    const color = stratColor(r.strategy);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.borderTopColor = color;
+    card.innerHTML = `
+      <div class="label">กลยุทธ์</div>
+      <div class="strat-name" style="color:${color}">${stratLabel(r.strategy)}</div>
+      <div class="roi ${m.roi_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(m.roi_pct)}</div>
+      <div class="stats">
+        ลงทุน <span>${fmtTHB(m.total_invested)}</span><br>
+        BTC <span>${fmtBTC(m.final_btc)}</span> · มูลค่า <span>${fmtTHB(m.final_value)}</span><br>
+        MaxDD <span>${m.max_drawdown_pct.toFixed(1)}%</span> · ค่าธรรมเนียม <span>${fmtTHB(m.total_fees)}</span>
+      </div>
+    `;
+    c.appendChild(card);
+  });
+}
+
+function renderEquityChart() {
+  const ctx = document.getElementById('equity-chart').getContext('2d');
+  const rows = DATA.single_path[state.window];
+  const datasets = [];
+  let labels = null;
+
+  rows.forEach(r => {
+    if (!state.enabledStrats.has(r.strategy)) return;
+    const eq = r.equity;
+    if (!labels) labels = eq.map(p => p.d);
+    datasets.push({
+      label: stratLabel(r.strategy) + ' (มูลค่า)',
+      data: eq.map(p => p.val),
+      borderColor: stratColor(r.strategy),
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.1,
+    });
+    datasets.push({
+      label: stratLabel(r.strategy) + ' (ลงทุน)',
+      data: eq.map(p => p.inv),
+      borderColor: stratColor(r.strategy),
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      tension: 0.0,
+    });
+  });
+
+  if (equityChart) equityChart.destroy();
+  equityChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 10 } } },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#cbd5e1',
+          callbacks: { label: c => `${c.dataset.label}: ${fmtTHB(c.raw)}` },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#475569', maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#475569', callback: v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v/1000).toFixed(0) + 'K' }, grid: { color: '#1e293b' } },
+      },
+    },
+  });
+}
+
+function renderDrawdownChart() {
+  const ctx = document.getElementById('dd-chart').getContext('2d');
+  const rows = DATA.single_path[state.window];
+  const datasets = []; let labels = null;
+  rows.forEach(r => {
+    if (!state.enabledStrats.has(r.strategy)) return;
+    const eq = r.equity;
+    if (!labels) labels = eq.map(p => p.d);
+    datasets.push({
+      label: stratLabel(r.strategy),
+      data: eq.map(p => -p.dd),
+      borderColor: stratColor(r.strategy),
+      backgroundColor: stratColor(r.strategy) + '22',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.2,
+    });
+  });
+  if (ddChart) ddChart.destroy();
+  ddChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 10 } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.raw.toFixed(2)}%` } },
+      },
+      scales: {
+        x: { ticks: { color: '#475569', maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#475569', callback: v => v.toFixed(0) + '%' }, grid: { color: '#1e293b' } },
+      },
+    },
+  });
+}
+
+function renderCompareTable() {
+  const tbody = document.querySelector('#compare-table tbody');
+  tbody.innerHTML = '';
+  DATA.single_path[state.window].forEach(r => {
+    const m = r.metrics;
+    const tr = document.createElement('tr');
+    if (!state.enabledStrats.has(r.strategy)) tr.style.opacity = '0.3';
+    const t1 = m.time_to_1btc_days ? m.time_to_1btc_days + 'd' : '<span class="muted">—</span>';
+    tr.innerHTML = `
+      <td style="color:${stratColor(r.strategy)}">${stratLabel(r.strategy)}</td>
+      <td>${fmtTHB(m.total_invested)}</td>
+      <td class="muted">${fmtTHB(m.total_fees)}</td>
+      <td>${fmtBTC(m.final_btc)}</td>
+      <td>${fmtTHB(m.final_value)}</td>
+      <td class="${m.roi_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(m.roi_pct)}</td>
+      <td class="${m.cagr_pct >= 0 ? 'pos' : 'neg'}">${fmtPct(m.cagr_pct)}</td>
+      <td>${m.max_drawdown_pct.toFixed(1)}%</td>
+      <td>${m.sortino.toFixed(2)}</td>
+      <td>${t1}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function pickWindowForGoal(goal) {
+  // Pick closest pre-computed window based on goal's remaining days.
+  const remDays = Math.max(1, daysBetween(todayISO(), goal.deadline));
+  const cutoffs = [
+    { id: '1y', mid: (365 + 1095) / 2 },
+    { id: '3y', mid: (1095 + 1826) / 2 },
+    { id: '5y', mid: 9999 },
+  ];
+  for (const c of cutoffs) {
+    if (remDays <= c.mid) return c.id;
+  }
+  return '5y';
+}
+
+function rankStrategiesForGoal(goal, windowId) {
+  // Rank by combination of (median BTC, speed-to-target).
+  // Score = median_btc * 1.0 + (median_roi/100) * 0.3 — favors accumulation
+  // Returns sorted list with annotations.
+  const ref = (DATA.goal_reference || {})[windowId];
+  if (!ref) {
+    // Fallback: use single_path
+    return DATA.single_path[windowId].map(r => ({
+      strategy: r.strategy, score: r.metrics.final_btc,
+      btc: r.metrics.final_btc, roi: r.metrics.roi_pct,
+      invested: r.metrics.total_invested,
+      time_to_1btc_days: r.metrics.time_to_1btc_days,
+    })).sort((a, b) => b.score - a.score);
+  }
+  const out = [];
+  Object.entries(ref).forEach(([sid, data]) => {
+    const score = data.median_btc + (data.median_roi_pct / 100) * 0.3;
+    out.push({
+      strategy: sid,
+      score,
+      median_btc: data.median_btc,
+      median_roi_pct: data.median_roi_pct,
+      p10_roi_pct: data.p10_roi_pct,
+      p90_roi_pct: data.p90_roi_pct,
+      prob_profit: data.prob_profit_pct,
+    });
+  });
+  // Add lumpsum from single_path
+  const sp = DATA.single_path[windowId];
+  if (sp) {
+    const lump = sp.find(r => r.strategy === 'lumpsum');
+    if (lump) {
+      out.push({
+        strategy: 'lumpsum',
+        score: lump.metrics.final_btc * 0.7,  // discount lumpsum because of timing risk
+        median_btc: lump.metrics.final_btc,
+        median_roi_pct: lump.metrics.roi_pct,
+        single_path_only: true,
+      });
+    }
+  }
+  return out.sort((a, b) => b.score - a.score);
+}
+
+function renderRecommendationCard(goal) {
+  const area = document.getElementById('recommendation-area');
+  if (!goal) { area.innerHTML = ''; return; }
+  const windowId = pickWindowForGoal(goal);
+  const ranking = rankStrategiesForGoal(goal, windowId);
+  if (!ranking || ranking.length === 0) { area.innerHTML = ''; return; }
+  const winner = ranking[0];
+  const stratName = stratLabel(winner.strategy);
+  const remDays = Math.max(1, daysBetween(todayISO(), goal.deadline));
+
+  // Compute required ฿/day base for winner strategy using same calculator as Goals tab
+  const { accumBtc } = computeProgress(goal);
+  const remBtc = Math.max(0, goal.target_btc - accumBtc);
+  const flatBtcPerBahtDay = 1 / (TODAY_PRICE * (1 + FEE_RATE));
+  const ref = (DATA.goal_reference || {})[windowId]?.[winner.strategy];
+  const refDays = windowId === '1y' ? 365 : windowId === '3y' ? 1095 : 1826;
+  const adjMedian = ref ? (ref.median_btc / (1000 * refDays)) / flatBtcPerBahtDay : 1.0;
+  const requiredPerDay = remBtc > 0 ? Math.ceil((remBtc / flatBtcPerBahtDay / remDays) / adjMedian) : 0;
+
+  let runnerUp = '';
+  if (ranking[1]) {
+    const r2 = ranking[1];
+    runnerUp = `<div style="font-size:11px;color:var(--muted);margin-top:6px">
+      อันดับ 2: <strong style="color:${stratColor(r2.strategy)}">${stratLabel(r2.strategy)}</strong>
+      (median ROI ${r2.median_roi_pct >= 0 ? '+' : ''}${r2.median_roi_pct?.toFixed(1) || '?'}%)
+    </div>`;
+  }
+
+  area.innerHTML = `
+    <div class="recommendation-card" style="border-color:${stratColor(winner.strategy)}">
+      <div class="rec-trophy">🏆</div>
+      <div class="rec-body">
+        <div class="rec-label">กลยุทธ์ที่แนะนำสำหรับ "${goal.name}"</div>
+        <div class="rec-name" style="color:${stratColor(winner.strategy)}">${stratName}</div>
+        <div class="rec-reason">
+          จาก rolling backtest ${refDays} วัน — ${winner.strategy === 'lumpsum' ? 'single-path เท่านั้น' : 'median ROI '+(winner.median_roi_pct?.toFixed(1) ?? '?')+'% (P10 '+(winner.p10_roi_pct?.toFixed(1) ?? '?')+'% / P90 '+(winner.p90_roi_pct?.toFixed(1) ?? '?')+'%)'}
+        </div>
+        ${runnerUp}
+      </div>
+      <div class="rec-stats">
+        <span class="k">Median BTC</span><span class="v">${winner.median_btc?.toFixed(3) ?? '?'}</span>
+        ${winner.prob_profit !== undefined ? `<span class="k">Prob profit</span><span class="v">${winner.prob_profit.toFixed(0)}%</span>` : ''}
+        <span class="k">งบที่ต้องลง</span><span class="v">฿${requiredPerDay.toLocaleString()}/วัน</span>
+        <span class="k">เหลือ</span><span class="v">${fmtDays(remDays)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function syncCompareGoalSelector() {
+  const sel = document.getElementById('compare-goal-select');
+  const goals = loadGoals();
+  // Preserve current selection
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— ไม่ลิงก์ (ดูทั่วไป) —</option>';
+  goals.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `${g.name} (${g.target_btc} BTC, ถึง ${g.deadline})`;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === current)) sel.value = current;
+}
+
+function renderCompare() {
+  syncCompareGoalSelector();
+  // If a goal is linked, override window
+  const goals = loadGoals();
+  const linkedGoal = state.linkedGoalId ? goals.find(g => g.id === state.linkedGoalId) : null;
+  if (linkedGoal) {
+    state.window = pickWindowForGoal(linkedGoal);
+    document.querySelectorAll('#window-buttons .btn').forEach((b, i) => {
+      b.classList.toggle('active', DATA.meta.windows[i].id === state.window);
+    });
+  }
+  renderRecommendationCard(linkedGoal);
+  renderCards();
+  renderEquityChart();
+  renderDrawdownChart();
+  renderCompareTable();
+}
+
+// =====================================================================
+// VIEW: ROLLING
+// =====================================================================
+let rollingChart = null, boxChart = null;
+
+function renderRollingTable() {
+  const tbody = document.querySelector('#rolling-table tbody');
+  tbody.innerHTML = '';
+  const rows = DATA.rolling[state.rollingWindow];
+  if (!rows) {
+    tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center; padding: 20px;">
+      ไม่มีข้อมูล (window length ≥ dataset)</td></tr>`;
+    return;
+  }
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const s = r.summary;
+    tr.innerHTML = `
+      <td style="color:${stratColor(r.strategy)}">${stratLabel(r.strategy)}</td>
+      <td class="muted">${r.n_paths}</td>
+      <td class="${s.roi.p10 >= 0 ? 'pos' : 'neg'}">${fmtPct(s.roi.p10)}</td>
+      <td class="${s.roi.p25 >= 0 ? 'pos' : 'neg'}">${fmtPct(s.roi.p25)}</td>
+      <td class="${s.roi.median >= 0 ? 'pos' : 'neg'}"><strong>${fmtPct(s.roi.median)}</strong></td>
+      <td class="${s.roi.p75 >= 0 ? 'pos' : 'neg'}">${fmtPct(s.roi.p75)}</td>
+      <td class="${s.roi.p90 >= 0 ? 'pos' : 'neg'}">${fmtPct(s.roi.p90)}</td>
+      <td>${s.prob_profit.toFixed(1)}%</td>
+      <td>${fmtBTC(s.btc_median)}</td>
+      <td>${s.dd_median.toFixed(1)}%</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderRollingHistogram() {
+  const ctx = document.getElementById('rolling-chart').getContext('2d');
+  const rows = DATA.rolling[state.rollingWindow] || [];
+
+  // Bin all ROIs across all strategies
+  let allRois = [];
+  rows.forEach(r => allRois = allRois.concat(r.rois));
+  if (allRois.length === 0) { if (rollingChart) rollingChart.destroy(); return; }
+  const minR = Math.floor(Math.min(...allRois) / 10) * 10;
+  const maxR = Math.ceil(Math.max(...allRois) / 10) * 10;
+  const binWidth = 10;
+  const nBins = Math.ceil((maxR - minR) / binWidth);
+  const labels = Array.from({length: nBins}, (_, i) => `${minR + i*binWidth}%`);
+
+  const datasets = rows.map(r => {
+    const counts = new Array(nBins).fill(0);
+    r.rois.forEach(v => {
+      const idx = Math.min(nBins - 1, Math.floor((v - minR) / binWidth));
+      counts[idx] += 1;
+    });
+    return {
+      label: stratLabel(r.strategy),
+      data: counts,
+      backgroundColor: stratColor(r.strategy) + 'aa',
+      borderColor: stratColor(r.strategy),
+      borderWidth: 1,
+    };
+  });
+
+  if (rollingChart) rollingChart.destroy();
+  rollingChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.raw} paths` } },
+      },
+      scales: {
+        x: { ticks: { color: '#475569' }, grid: { display: false }, title: { text: 'ROI bucket', display: true, color: '#64748b' } },
+        y: { ticks: { color: '#475569' }, grid: { color: '#1e293b' }, title: { text: 'จำนวน paths', display: true, color: '#64748b' } },
+      },
+    },
+  });
+}
+
+function renderBoxPlot() {
+  // Render P10/P25/Median/P75/P90 as a stacked-bar approximation
+  const ctx = document.getElementById('boxplot-chart').getContext('2d');
+  const rows = DATA.rolling[state.rollingWindow] || [];
+
+  const labels = rows.map(r => stratLabel(r.strategy));
+  const colors = rows.map(r => stratColor(r.strategy));
+
+  // Datasets: floating bars for P10-P90 range, plus median dot
+  const p10 = rows.map(r => r.summary.roi.p10);
+  const p25 = rows.map(r => r.summary.roi.p25);
+  const median = rows.map(r => r.summary.roi.median);
+  const p75 = rows.map(r => r.summary.roi.p75);
+  const p90 = rows.map(r => r.summary.roi.p90);
+
+  // Use floating bar trick: array of [low, high] for each bar
+  if (boxChart) boxChart.destroy();
+  boxChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'P10–P90',
+          data: rows.map((r, i) => [p10[i], p90[i]]),
+          backgroundColor: colors.map(c => c + '33'),
+          borderColor: colors,
+          borderWidth: 1,
+          borderSkipped: false,
+        },
+        {
+          label: 'P25–P75 (IQR)',
+          data: rows.map((r, i) => [p25[i], p75[i]]),
+          backgroundColor: colors.map(c => c + '88'),
+          borderColor: colors,
+          borderWidth: 1,
+          borderSkipped: false,
+        },
+        {
+          label: 'Median',
+          type: 'scatter',
+          data: rows.map((r, i) => ({ x: stratLabel(r.strategy), y: median[i] })),
+          backgroundColor: '#f8fafc',
+          borderColor: '#1e293b',
+          borderWidth: 2,
+          pointRadius: 6,
+          pointStyle: 'rectRot',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: c => {
+              if (c.dataset.label === 'Median') return `Median: ${fmtPct(c.parsed.y)}`;
+              if (Array.isArray(c.raw)) return `${c.dataset.label}: ${fmtPct(c.raw[0])} → ${fmtPct(c.raw[1])}`;
+              return c.formattedValue;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+        y: { ticks: { color: '#475569', callback: v => v + '%' }, grid: { color: '#1e293b' }, title: { text: 'ROI %', display: true, color: '#64748b' } },
+      },
+    },
+  });
+}
+
+function renderRolling() {
+  renderRollingTable();
+  renderRollingHistogram();
+  renderBoxPlot();
+}
+
+// =====================================================================
+// VIEW: AUDIT
+// =====================================================================
+function renderAudit() {
+  const m = DATA.meta;
+  const grid = document.getElementById('meta-grid');
+  grid.innerHTML = `
+    <span class="k">Source</span><span class="v">${m.data_source}</span>
+    <span class="k">Endpoint</span><span class="v">${m.data_endpoint}</span>
+    <span class="k">Symbol</span><span class="v">${m.symbol} @ 1D</span>
+    <span class="k">Range</span><span class="v">${m.data_range_from} → ${m.data_range_to}</span>
+    <span class="k">Bars</span><span class="v">${m.data_bars} (continuous, deduped)</span>
+    <span class="k">Fee rate</span><span class="v">${m.fee_rate_pct.toFixed(2)}%</span>
+    <span class="k">Daily amount</span><span class="v">฿${m.daily_amount_thb.toLocaleString()}</span>
+    <span class="k">Generated</span><span class="v">${m.generated_at}</span>
+  `;
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+function init() {
+  document.getElementById('gen-time').textContent = new Date(DATA.meta.generated_at).toLocaleString('th-TH');
+  document.getElementById('data-end').textContent = DATA.meta.data_range_to;
+
+  renderWindowButtons('window-buttons', 'window', () => {
+    document.querySelectorAll('#window-buttons .btn').forEach((b, i) => {
+      b.classList.toggle('active', DATA.meta.windows[i].id === state.window);
+    });
+    renderCompare();
+  });
+  renderWindowButtons('rolling-window-buttons', 'rollingWindow', () => {
+    document.querySelectorAll('#rolling-window-buttons .btn').forEach((b, i) => {
+      b.classList.toggle('active', DATA.meta.windows[i].id === state.rollingWindow);
+    });
+    renderRolling();
+  });
+  renderStratToggles();
+  initGoalsTab();
+
+  // Wire up goal selector in compare tab
+  document.getElementById('compare-goal-select').onchange = (e) => {
+    state.linkedGoalId = e.target.value;
+    renderCompare();
+  };
+
+  renderToday();
+}
+
+init();
+</script>
+</body>
+</html>

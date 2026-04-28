@@ -1,0 +1,78 @@
+name: Daily DCA Dashboard Rebuild
+
+on:
+  schedule:
+    # 02:00 UTC = 09:00 ICT (Bangkok)
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # allow manual trigger from GitHub UI
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'requirements.txt'
+
+permissions:
+  contents: write    # commit data + dist back to repo
+  pages: write       # deploy to GitHub Pages
+  id-token: write    # for Pages deployment auth
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch latest BTC/THB from Bitkub
+        run: python scripts/fetch_bitkub.py
+
+      - name: Validate data quality
+        run: python scripts/validate_data.py
+
+      - name: Run engine unit tests
+        run: python tests/test_engine.py
+
+      - name: Build dashboard
+        run: python scripts/build_dashboard.py
+
+      - name: Commit refreshed artifacts back to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/btc_thb_daily.json data/data_quality_report.md dist/index.html
+          if git diff --staged --quiet; then
+            echo "No changes — skipping commit"
+          else
+            git commit -m "auto: refresh dashboard $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact (dist/)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
