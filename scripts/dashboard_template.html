@@ -449,6 +449,30 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
   border: 1px dashed var(--border);
 }
 
+.goal-chart-wrap {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.goal-chart-wrap .label {
+  font-size: 11px; color: var(--muted); margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+}
+.goal-chart-canvas { position: relative; height: 240px; }
+.goal-chart-legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  font-size: 10px; color: var(--muted); margin-top: 6px;
+}
+.goal-chart-legend .lg-item { display: flex; align-items: center; gap: 4px; }
+.goal-chart-legend .swatch {
+  display: inline-block; width: 14px; height: 3px; border-radius: 2px;
+}
+.goal-chart-legend .swatch-dashed {
+  background: repeating-linear-gradient(to right, var(--muted) 0 4px, transparent 4px 7px);
+}
+.goal-chart-legend .swatch-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
 .notif-box {
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   padding: 16px 20px;
@@ -1397,6 +1421,10 @@ function statusForGoal(goal, scen) {
 
 // ── Render ────────────────────────────────────────────────────────
 function renderGoals() {
+  // Cleanup all chart instances before re-rendering (DOM nodes are about to be wiped)
+  goalChartInstances.forEach(c => c.destroy());
+  goalChartInstances.clear();
+
   const goals = loadGoals();
   const list = document.getElementById('goals-list');
   document.getElementById('goal-count').textContent = `${goals.length} เป้าหมาย`;
@@ -1458,6 +1486,23 @@ function renderGoalCard(goal) {
       </div>`;
   }
 
+  // Chart canvas — unique per goal
+  const chartId = `goal-chart-${goal.id}`;
+  const chartHtml = `
+    <div class="goal-chart-wrap">
+      <div class="label">📈 Visual Progress — ตำแหน่งปัจจุบัน vs เป้า</div>
+      <div class="goal-chart-canvas"><canvas id="${chartId}"></canvas></div>
+      <div class="goal-chart-legend">
+        <span class="lg-item"><span class="swatch swatch-dashed"></span>เส้นแผน (linear)</span>
+        <span class="lg-item"><span class="swatch" style="background:var(--accent)"></span>Actual progress</span>
+        <span class="lg-item"><span class="swatch" style="background:var(--green)"></span>P90 projection</span>
+        <span class="lg-item"><span class="swatch" style="background:#facc15"></span>Median projection</span>
+        <span class="lg-item"><span class="swatch" style="background:var(--red)"></span>P10 projection</span>
+        <span class="lg-item"><span class="swatch-dot" style="background:var(--text)"></span>วันนี้</span>
+      </div>
+    </div>
+  `;
+
   let logsHtml = '';
   if ((goal.logs || []).length > 0) {
     logsHtml = '<div class="log-list"><div class="log-list-title">บันทึกการซื้อ ('+ goal.logs.length +' รายการ)</div>';
@@ -1502,8 +1547,12 @@ function renderGoalCard(goal) {
       📊 Reference: ใช้ rolling backtest ${scen.ref_window_days || 'flat'} วันของกลยุทธ์ ${stratLabel} ·
       💡 P10/P90 ประมาณการจาก backtest 5 ปีที่ผ่านมา · ไม่การันตีอนาคต
     </div>
+    ${chartHtml}
     ${logsHtml}
   `;
+
+  // Render chart asynchronously (after DOM insertion via setTimeout 0)
+  setTimeout(() => renderGoalChart(goal, scen, chartId), 0);
 
   // Wire up action buttons (event delegation)
   card.querySelectorAll('[data-action]').forEach(btn => {
@@ -1521,6 +1570,240 @@ function renderGoalCard(goal) {
   });
 
   return card;
+}
+
+// ── Goal Chart (visual progress) ──────────────────────────────────
+const goalChartInstances = new Map();
+
+function projectScenarioEndpoints(goal, scen) {
+  // Returns end BTC values for each scenario at deadline (or projected date for Mode C).
+  // Uses median budget for Mode A (since user must pick one to invest).
+  const today = todayISO();
+  const budget = (goal.mode === 'A')
+    ? (scen.median?.thb_per_day || 0)
+    : goal.budget_thb;
+  const daysRem = Math.max(0, daysBetween(today, goal.deadline));
+  const flatRate = 1 / (TODAY_PRICE * (1 + FEE_RATE));
+  const refWindow = pickWindowForGoal(goal);
+  const ref = (DATA.goal_reference || {})[refWindow]?.[goal.strategy];
+  const refDays = refWindow === '1y' ? 365 : refWindow === '3y' ? 1095 : 1826;
+  const adjMed = ref ? (ref.median_btc / (1000 * refDays)) / flatRate : 1.0;
+  const adjP10 = adjMed * 0.75;
+  const adjP90 = adjMed * 1.25;
+
+  const baseBtc = budget * daysRem * flatRate;
+  return {
+    budget,
+    daysRem,
+    end_flat:   scen.accumBtc + baseBtc,
+    end_p10:    scen.accumBtc + baseBtc * adjP10,
+    end_median: scen.accumBtc + baseBtc * adjMed,
+    end_p90:    scen.accumBtc + baseBtc * adjP90,
+  };
+}
+
+function renderGoalChart(goal, scen, canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  // Cleanup previous instance for this goal
+  if (goalChartInstances.has(goal.id)) {
+    goalChartInstances.get(goal.id).destroy();
+  }
+
+  const startMs = new Date(goal.start_date).getTime();
+  const deadlineMs = new Date(goal.deadline).getTime();
+  const todayMs = new Date(todayISO()).getTime();
+  const totalDays = Math.max(1, Math.round((deadlineMs - startMs) / 86400000));
+  const elapsedDays = Math.max(0, Math.round((todayMs - startMs) / 86400000));
+
+  // Generate weekly sample dates (cap at 60 points for performance)
+  const stepDays = Math.max(1, Math.ceil(totalDays / 60));
+  const labels = [];
+  const dayNumbers = [];
+  for (let d = 0; d <= totalDays; d += stepDays) {
+    const ms = startMs + d * 86400000;
+    labels.push(new Date(ms).toISOString().slice(0, 10));
+    dayNumbers.push(d);
+  }
+  if (dayNumbers[dayNumbers.length - 1] !== totalDays) {
+    labels.push(goal.deadline);
+    dayNumbers.push(totalDays);
+  }
+
+  // 1. Plan trajectory: linear from (0, 0) to (totalDays, target_btc)
+  const planLine = dayNumbers.map(d => (d / totalDays) * goal.target_btc);
+
+  // 2. Actual progress: cumulative BTC from logs, only up to today
+  const sortedLogs = [...(goal.logs || [])].sort((a, b) => a.date.localeCompare(b.date));
+  let cumBtc = 0;
+  const logEvents = sortedLogs.map(l => {
+    cumBtc += l.btc;
+    return {
+      day: Math.round((new Date(l.date).getTime() - startMs) / 86400000),
+      btc: cumBtc,
+    };
+  });
+  // Build actual line aligned to labels (carry forward last value, null after today)
+  const actualLine = dayNumbers.map(d => {
+    if (d > elapsedDays) return null;
+    let val = 0;
+    for (const ev of logEvents) {
+      if (ev.day <= d) val = ev.btc;
+      else break;
+    }
+    return val;
+  });
+
+  // 3. Projections from today onwards (null before today)
+  const endpoints = projectScenarioEndpoints(goal, scen);
+  const projAt = (endBtc) => dayNumbers.map(d => {
+    if (d < elapsedDays) return null;
+    const fracRem = (d - elapsedDays) / Math.max(1, totalDays - elapsedDays);
+    return scen.accumBtc + (endBtc - scen.accumBtc) * fracRem;
+  });
+  const p10Line = projAt(endpoints.end_p10);
+  const medLine = projAt(endpoints.end_median);
+  const p90Line = projAt(endpoints.end_p90);
+
+  // 4. Target horizontal line
+  const targetLine = dayNumbers.map(() => goal.target_btc);
+
+  // X-tick labels: show every Nth label to avoid crowding (max ~10)
+  const tickStride = Math.max(1, Math.ceil(labels.length / 10));
+
+  const ctx = canvas.getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Plan (linear)',
+          data: planLine,
+          borderColor: 'rgba(148,163,184,0.5)',
+          borderDash: [4, 4],
+          borderWidth: 1,
+          pointRadius: 0, tension: 0,
+          fill: false, order: 5,
+        },
+        {
+          label: 'Target',
+          data: targetLine,
+          borderColor: 'rgba(245,158,11,0.4)',
+          borderDash: [2, 6],
+          borderWidth: 1,
+          pointRadius: 0, tension: 0,
+          fill: false, order: 6,
+        },
+        {
+          label: 'P90 projection',
+          data: p90Line,
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,0.08)',
+          borderWidth: 1.5,
+          pointRadius: 0, tension: 0.1,
+          fill: '+1', order: 4,
+        },
+        {
+          label: 'Median projection',
+          data: medLine,
+          borderColor: '#facc15',
+          borderWidth: 2,
+          pointRadius: 0, tension: 0.1,
+          fill: false, order: 3,
+        },
+        {
+          label: 'P10 projection',
+          data: p10Line,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,0.08)',
+          borderWidth: 1.5,
+          pointRadius: 0, tension: 0.1,
+          fill: false, order: 2,
+        },
+        {
+          label: 'Actual',
+          data: actualLine,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.15)',
+          borderWidth: 2.5,
+          pointRadius: (ctx) => (logEvents.some(e => Math.abs(e.day - dayNumbers[ctx.dataIndex]) <= stepDays / 2) ? 3 : 0),
+          pointBackgroundColor: '#f59e0b',
+          tension: 0.1,
+          fill: 'origin', order: 1,
+          spanGaps: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#f1f5f9',
+          bodyColor: '#cbd5e1',
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.parsed.y === null) return null;
+              return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)} BTC`;
+            },
+          },
+        },
+        annotation: undefined,  // no extra plugin available
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#475569',
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8,
+          },
+          grid: { color: 'rgba(30,41,59,0.5)', drawBorder: false },
+        },
+        y: {
+          ticks: {
+            color: '#475569',
+            callback: v => v.toFixed(2) + ' BTC',
+          },
+          grid: { color: 'rgba(30,41,59,0.5)' },
+          beginAtZero: true,
+        },
+      },
+    },
+    plugins: [{
+      // Vertical "today" marker
+      id: 'todayMarker',
+      afterDatasetsDraw: (c) => {
+        const xScale = c.scales.x;
+        const yScale = c.scales.y;
+        const targetIdx = dayNumbers.findIndex(d => d >= elapsedDays);
+        if (targetIdx < 0) return;
+        const x = xScale.getPixelForValue(targetIdx);
+        const ctx2 = c.ctx;
+        ctx2.save();
+        ctx2.strokeStyle = '#f1f5f9';
+        ctx2.lineWidth = 1;
+        ctx2.setLineDash([3, 3]);
+        ctx2.beginPath();
+        ctx2.moveTo(x, yScale.top);
+        ctx2.lineTo(x, yScale.bottom);
+        ctx2.stroke();
+        // Label "วันนี้"
+        ctx2.setLineDash([]);
+        ctx2.fillStyle = '#f1f5f9';
+        ctx2.font = '10px sans-serif';
+        ctx2.textAlign = 'center';
+        ctx2.fillText('วันนี้', x, yScale.top + 12);
+        ctx2.restore();
+      },
+    }],
+  });
+  goalChartInstances.set(goal.id, chart);
 }
 
 // ── Log entries ───────────────────────────────────────────────────
