@@ -711,6 +711,91 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
 .horizon-hint.show { display: block; }
 .horizon-hint strong { color: var(--accent); }
 
+/* ====================================================================
+   PHASE 11 — Mode D Smart Helper
+==================================================================== */
+.smart-helper {
+  margin-top: 12px; padding: 14px 16px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(96,165,250,0.06), rgba(34,197,94,0.04));
+  border: 1px solid var(--border);
+}
+.smart-helper .helper-title {
+  font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px;
+}
+
+.helper-mode-tabs {
+  display: flex; gap: 4px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.helper-tab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 6px 12px; font-size: 12px; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: inherit;
+}
+.helper-tab.active {
+  color: var(--accent); border-bottom-color: var(--accent); font-weight: 600;
+}
+.helper-tab:hover:not(.active) { color: var(--text); }
+
+.helper-content {
+  margin-bottom: 12px;
+}
+.helper-row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 13px; color: var(--text);
+}
+.helper-row input {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; color: var(--text);
+  font-family: inherit; font-size: 13px;
+  width: 90px;
+}
+.helper-row input:focus { outline: none; border-color: var(--accent); }
+.helper-row input#helper-budget { width: 110px; }
+.helper-row .muted { color: var(--muted); }
+
+.helper-strategy-row {
+  display: flex; gap: 8px; align-items: center; margin-top: 8px;
+  font-size: 11px;
+}
+.helper-strategy-row select {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; color: var(--text);
+  font-family: inherit; font-size: 11px;
+}
+
+.helper-result-box {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; margin: 10px 0;
+  background: var(--panel2); border-radius: 8px;
+  border-left: 3px solid var(--accent);
+  flex-wrap: wrap; gap: 8px;
+}
+.helper-result-main {
+  display: flex; align-items: baseline; gap: 8px;
+}
+.helper-result-main .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.helper-result-main .val { font-size: 24px; font-weight: 800; color: var(--accent); font-family: 'SF Mono', Menlo, monospace; }
+.helper-result-aux { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.helper-result-aux strong { color: var(--text); }
+
+.helper-presets {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.preset-btn {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 4px 10px; font-size: 11px; color: var(--muted); cursor: pointer;
+  font-family: inherit;
+}
+.preset-btn:hover {
+  border-color: var(--accent); color: var(--accent);
+}
+.preset-btn.active {
+  background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600;
+}
+
 </style>
 </head>
 <body>
@@ -852,7 +937,72 @@ tr:nth-child(even) td { background: rgba(255,255,255,0.01); }
       </label>
       <label data-mode="D">เป้า BTC ต่อเดือน
         <input type="number" id="g-btc-per-month" step="0.001" min="0.001" value="0.030">
+        <span style="font-size:10px;color:var(--muted);margin-top:2px">↓ ใช้ Smart Helper ด้านล่างช่วยคำนวณได้</span>
       </label>
+    </div>
+
+    <!-- Phase 11: Smart Helper for Mode D -->
+    <div data-mode="D" id="mode-d-helper" class="smart-helper">
+      <div class="helper-title">
+        🧮 Smart Helper — คำนวณ BTC/เดือน อัตโนมัติ
+      </div>
+      <div class="helper-mode-tabs">
+        <button type="button" class="helper-tab active" data-helper="goal">🎯 จากเป้าหมาย</button>
+        <button type="button" class="helper-tab" data-helper="budget">💰 จากงบ</button>
+        <button type="button" class="helper-tab" data-helper="custom">⚙️ กำหนดเอง</button>
+      </div>
+
+      <div class="helper-content" data-content="goal">
+        <div class="helper-row">
+          <span>ต้องการสะสม</span>
+          <input type="number" id="helper-total-btc" step="0.01" min="0.01" value="1.0">
+          <span>BTC ภายใน</span>
+          <input type="number" id="helper-months" step="1" min="1" value="36">
+          <span>เดือน</span>
+        </div>
+      </div>
+
+      <div class="helper-content hidden" data-content="budget">
+        <div class="helper-row">
+          <span>งบที่จะลง ฿</span>
+          <input type="number" id="helper-budget" step="1000" min="100" value="30000">
+          <span>/ เดือน</span>
+        </div>
+        <div class="helper-strategy-row">
+          <span class="muted">สมมติใช้กลยุทธ์</span>
+          <select id="helper-strategy">
+            <option value="flat">Flat (ราคาคงที่ — conservative)</option>
+            <option value="mayer" selected>Mayer Multiple (Median backtest)</option>
+            <option value="sma2x">SMA-2x</option>
+            <option value="bollinger3">Bollinger 3-tier</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="helper-content hidden" data-content="custom">
+        <div class="helper-row">
+          <span>BTC/เดือน:</span>
+          <input type="number" id="helper-custom" step="0.001" min="0.001" value="0.030">
+          <span class="muted" style="font-size: 10px;">(พิมพ์ค่าที่ต้องการตรงๆ)</span>
+        </div>
+      </div>
+
+      <div class="helper-result-box">
+        <div class="helper-result-main">
+          <span class="lbl">→ BTC/เดือน</span>
+          <span class="val" id="helper-result-value">0.0278</span>
+        </div>
+        <div class="helper-result-aux" id="helper-result-aux"></div>
+      </div>
+
+      <div class="helper-presets">
+        <span class="muted" style="font-size:10px;">⚡ Quick presets:</span>
+        <button type="button" class="preset-btn" data-target="0.0083">0.1 BTC/ปี</button>
+        <button type="button" class="preset-btn" data-target="0.0167">1 BTC/5 ปี</button>
+        <button type="button" class="preset-btn" data-target="0.0278">1 BTC/3 ปี</button>
+        <button type="button" class="preset-btn" data-target="0.0333">2 BTC/5 ปี</button>
+        <button type="button" class="preset-btn" data-target="0.0556">2 BTC/3 ปี</button>
+      </div>
     </div>
 
     <details class="goal-form-advanced">
@@ -1816,6 +1966,107 @@ function applyFormMode() {
   });
 }
 
+// =====================================================================
+// PHASE 11 — Mode D Smart Helper
+// =====================================================================
+function getStrategyAdjFactor(strategyId) {
+  // Returns rough median adjustment factor for the strategy from rolling backtest.
+  // Flat = 1.0, others derived from goal_reference (3y window).
+  const ref = (DATA.goal_reference || {})['3y']?.[strategyId];
+  if (!ref) return 1.0;
+  const flatRate = 1 / (TODAY_PRICE * (1 + FEE_RATE));
+  return (ref.median_btc / (1000 * 1095)) / flatRate;
+}
+
+function helperSwitchMode(mode) {
+  document.querySelectorAll('#mode-d-helper .helper-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.helper === mode);
+  });
+  document.querySelectorAll('#mode-d-helper .helper-content').forEach(c => {
+    c.classList.toggle('hidden', c.dataset.content !== mode);
+  });
+  helperRecompute();
+}
+
+function helperRecompute() {
+  const activeMode = document.querySelector('#mode-d-helper .helper-tab.active')?.dataset.helper || 'goal';
+  const resultEl = document.getElementById('helper-result-value');
+  const auxEl = document.getElementById('helper-result-aux');
+  let btcPerMonth = 0;
+  let auxText = '';
+
+  if (activeMode === 'goal') {
+    const totalBtc = parseFloat(document.getElementById('helper-total-btc').value) || 1.0;
+    const months = parseFloat(document.getElementById('helper-months').value) || 36;
+    btcPerMonth = totalBtc / months;
+    const years = months / 12;
+    auxText = `รวม <strong>${totalBtc} BTC</strong> ใน <strong>${months} เดือน</strong> (${years.toFixed(1)} ปี)`;
+    if (years < 5) auxText += ' · <span style="color:var(--accent)">⚠️ ต่ำกว่า 5 ปี</span>';
+  } else if (activeMode === 'budget') {
+    const budget = parseFloat(document.getElementById('helper-budget').value) || 30000;
+    const strat = document.getElementById('helper-strategy').value;
+    const adj = getStrategyAdjFactor(strat);
+    // Flat: budget × (1 - fee) / current_price = BTC/month at flat price
+    const flatBtc = (budget * (1 - FEE_RATE)) / TODAY_PRICE;
+    // Strategy-adjusted: flat × adj_factor
+    const adjBtc = flatBtc * adj;
+    btcPerMonth = adjBtc;
+    auxText = `งบ <strong>฿${budget.toLocaleString()}</strong>/เดือน · ราคา <strong>฿${Math.round(TODAY_PRICE).toLocaleString()}</strong>
+      <br>Flat (no strategy boost): <strong>${flatBtc.toFixed(4)}</strong> BTC/เดือน
+      <br>${strat.toUpperCase()} adj × ${adj.toFixed(2)} → <strong>${adjBtc.toFixed(4)}</strong> BTC/เดือน`;
+  } else {
+    btcPerMonth = parseFloat(document.getElementById('helper-custom').value) || 0.030;
+    const yearsTo1Btc = (1 / btcPerMonth) / 12;
+    auxText = `ที่อัตรานี้ → 1 BTC ใน <strong>${yearsTo1Btc.toFixed(1)} ปี</strong>`;
+  }
+
+  // Update result display
+  if (resultEl) resultEl.textContent = btcPerMonth.toFixed(4);
+  if (auxEl) auxEl.innerHTML = auxText;
+
+  // Sync to actual form field
+  const formField = document.getElementById('g-btc-per-month');
+  if (formField) formField.value = btcPerMonth.toFixed(4);
+
+  // Highlight active preset (if any)
+  document.querySelectorAll('#mode-d-helper .preset-btn').forEach(b => {
+    const preset = parseFloat(b.dataset.target);
+    b.classList.toggle('active', Math.abs(preset - btcPerMonth) < 0.0001);
+  });
+}
+
+function initSmartHelper() {
+  // Tab switching
+  document.querySelectorAll('#mode-d-helper .helper-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      helperSwitchMode(tab.dataset.helper);
+    });
+  });
+
+  // Input listeners — recompute on any change
+  ['helper-total-btc', 'helper-months', 'helper-budget', 'helper-strategy', 'helper-custom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', helperRecompute);
+    if (el && el.tagName === 'SELECT') el.addEventListener('change', helperRecompute);
+  });
+
+  // Preset buttons — apply to whichever mode is active by setting custom mode
+  document.querySelectorAll('#mode-d-helper .preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = parseFloat(btn.dataset.target);
+      // Switch to custom mode and set value
+      helperSwitchMode('custom');
+      document.getElementById('helper-custom').value = target.toFixed(4);
+      helperRecompute();
+    });
+  });
+
+  // Initial compute
+  helperRecompute();
+}
+
 function checkHorizonHint() {
   const startEl = document.getElementById('g-start');
   const deadlineEl = document.getElementById('g-deadline');
@@ -1839,6 +2090,13 @@ function showGoalForm(goal) {
   document.getElementById('g-deadline').value = goal?.deadline || addDaysISO(todayISO(), 1095);
   document.getElementById('g-budget').value = goal?.budget_thb || 1000;
   document.getElementById('g-btc-per-month').value = goal?.target_btc_per_month || 0.030;
+  // Reset Smart Helper to default state when opening form
+  if (goal?.target_btc_per_month) {
+    document.getElementById('helper-custom').value = goal.target_btc_per_month.toFixed(4);
+    setTimeout(() => helperSwitchMode('custom'), 50);
+  } else {
+    setTimeout(() => helperSwitchMode('goal'), 50);
+  }
   document.getElementById('g-target-min').value = goal?.target_btc_min || '';
   document.getElementById('g-target-max').value = goal?.target_btc_max || '';
   document.getElementById('g-deadline-min').value = goal?.deadline_min || '';
@@ -2740,9 +2998,10 @@ function initGoalsTab() {
   document.getElementById('btn-new-goal').onclick = () => showGoalForm(null);
   document.getElementById('btn-cancel-goal').onclick = hideGoalForm;
   document.getElementById('btn-save-goal').onclick = saveGoalFromForm;
-  document.getElementById('g-mode').onchange = applyFormMode;
+  document.getElementById('g-mode').onchange = () => { applyFormMode(); helperRecompute(); };
   document.getElementById('g-start').addEventListener('change', checkHorizonHint);
   document.getElementById('g-deadline').addEventListener('change', checkHorizonHint);
+  initSmartHelper();
 
   document.getElementById('btn-cancel-log').onclick = hideLogForm;
   document.getElementById('btn-save-log').onclick = saveLogFromForm;
