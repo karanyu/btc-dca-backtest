@@ -2,8 +2,8 @@
 
 **Source:** bitkub (https://api.bitkub.com/tradingview/history)  
 **Symbol:** BTC_THB @ 1D  
-**Fetched:** 2026-09-13T07:01:16.235978+00:00  
-**Range:** 2021-09-14 → 2026-09-13 (1826 bars)  
+**Fetched:** 2026-09-14T07:24:06.295393+00:00  
+**Range:** 2021-09-15 → 2026-09-14 (1826 bars)  
 
 ## Summary
 
@@ -13,7 +13,7 @@
 | C-2: Continuous daily series (no missing days) | ✅ | 0 gaps > 1 day. Perfect continuity. |
 | C-3: Price sanity (no NaN, no zero/negative, h>=l) | ✅ | All prices valid. |
 | C-4: Extreme single-day moves (>30%) | ✅ | 0 extreme moves found |
-| C-5: Coverage span vs row count | ✅ | first=2021-09-14, last=2026-09-13, span=1826 days, rows=1826 |
+| C-5: Coverage span vs row count | ✅ | first=2021-09-15, last=2026-09-14, span=1826 days, rows=1826 |
 | C-6: Spot-check known reference dates | ✅ | Manual review needed (compare with TradingView/Bitkub website) |
 
 ### Spot-check rows (C-6: Spot-check known reference dates)
@@ -26,14 +26,14 @@
 
 - Min: ฿568,036.66 on 2023-01-06
 - Max: ฿4,045,998.95 on 2025-10-06
-- Mean: ฿1,966,420.64
-- Median: ฿2,038,694.35
-- Std: ฿959,377.10
+- Mean: ฿1,966,990.11
+- Median: ฿2,039,311.86
+- Std: ฿959,435.38
 
 ## Return Statistics (daily close-to-close)
 
-- Mean daily return: 0.0563%
-- Std daily return: 2.4039%
-- Annualized vol: 45.93%
+- Mean daily return: 0.0553%
+- Std daily return: 2.4030%
+- Annualized vol: 45.91%
 - Min daily: -14.67% on 2022-06-13
 - Max daily: 16.12% on 2023-03-13
